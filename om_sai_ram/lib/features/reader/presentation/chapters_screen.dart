@@ -163,11 +163,11 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
                       ),
                       child: Center(
                         child: Text(
-                          '${chapter.number}',
+                          chapter.chapterLabel ?? '${chapter.number}',
                           style: TextStyle(
                             color: AppColors.saffron,
                             fontWeight: FontWeight.w700,
-                            fontSize: 15,
+                            fontSize: chapter.chapterLabel != null && chapter.chapterLabel!.length > 2 ? 11 : 15,
                           ),
                         ),
                       ),
@@ -178,6 +178,8 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
                         fontWeight: FontWeight.w500,
                         fontSize: 14,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     trailing: Icon(
                       Icons.chevron_right,

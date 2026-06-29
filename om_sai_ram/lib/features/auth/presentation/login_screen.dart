@@ -102,6 +102,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     });
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go(AppRoutes.home);
+            }
+          },
+        ),
+      ),
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,

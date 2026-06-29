@@ -28,13 +28,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref.read(groupsProvider.notifier).loadGroups());
+    // Only load groups if authenticated
+    final isLoggedIn = ref.read(authStateProvider).isAuthenticated;
+    if (isLoggedIn) {
+      Future.microtask(() => ref.read(groupsProvider.notifier).loadGroups());
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
     final groupsState = ref.watch(groupsProvider);
+    final isLoggedIn = authState.isAuthenticated;
     final userName = authState.user?.name ?? 'Devotee';
 
     return Scaffold(
@@ -113,7 +118,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     icon: Icons.group_add_outlined,
                     label: AppStrings.createGroup,
                     color: AppColors.saffron,
-                    onTap: () => context.go('/groups/create'),
+                    onTap: () {
+                      if (isLoggedIn) {
+                        context.go('/groups/create');
+                      } else {
+                        context.go(AppRoutes.login);
+                      }
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -129,6 +140,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
 
             const SizedBox(height: 32),
+
+            // My Groups summary (only when logged in)
+            if (!isLoggedIn) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.lightGrey),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.group_outlined, size: 36, color: AppColors.saffron),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Sign in for Group Reading',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Create or join a group to read together',
+                      style: TextStyle(color: AppColors.lightText, fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+                    FilledButton(
+                      onPressed: () => context.go(AppRoutes.login),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.saffron,
+                      ),
+                      child: const Text('Sign In'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+            ] else ...[
 
             // My Groups summary
             Row(
@@ -247,6 +297,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
 
             const SizedBox(height: 32),
+            ], // end else (logged-in groups section)
 
             // Inspirational quote
             Container(

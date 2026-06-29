@@ -120,7 +120,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Chapter number badge
+                // Chapter label badge
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
@@ -128,7 +128,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '${AppStrings.chapter} ${chapter.number} of 53',
+                    'Chapter ${chapter.chapterLabel ?? chapter.number}',
                     style: TextStyle(
                       color: AppColors.saffron,
                       fontSize: 12,
@@ -172,14 +172,8 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                 ),
                 const SizedBox(height: 28),
 
-                // Chapter content — uses serif font for readability
-                Text(
-                  chapter.content,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        height: 1.8,
-                        fontSize: 17,
-                      ),
-                ),
+                // Chapter content — structured rendering
+                ..._buildContentWidgets(context, chapter.content),
 
                 const SizedBox(height: 48),
 
@@ -218,7 +212,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                         )
                       else
                         const SizedBox.shrink(),
-                      if (widget.chapterId < 53)
+                      if (widget.chapterId < ref.read(chaptersProvider).chapters.length)
                         FilledButton.icon(
                           onPressed: () {
                             Navigator.pushReplacement(
@@ -251,6 +245,192 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Builds structured content widgets from the markdown-like chapter content.
+  List<Widget> _buildContentWidgets(BuildContext context, String content) {
+    final blocks = content.split('\n\n');
+    final widgets = <Widget>[];
+    bool inFootnotes = false;
+
+    for (final block in blocks) {
+      final trimmed = block.trim();
+      if (trimmed.isEmpty) continue;
+
+      // Main heading: # TITLE
+      if (trimmed.startsWith('# ')) {
+        // Already shown in the header, skip
+        continue;
+      }
+
+      // Subtitle: _italic text_
+      if (trimmed.startsWith('_') && trimmed.endsWith('_')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Text(
+            trimmed.substring(1, trimmed.length - 1),
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  fontSize: 15,
+                  height: 1.6,
+                  color: AppColors.mediumText,
+                ),
+          ),
+        ));
+        continue;
+      }
+
+      // Subheading: ## Section Title
+      if (trimmed.startsWith('## ')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 24, bottom: 12),
+          child: Text(
+            trimmed.substring(3),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 19,
+                  height: 1.4,
+                ),
+          ),
+        ));
+        continue;
+      }
+
+      // Footnote separator: ---
+      if (trimmed == '---') {
+        inFootnotes = true;
+        widgets.add(Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 1,
+                  color: AppColors.lightGrey,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'Notes',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.lightText,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  height: 1,
+                  color: AppColors.lightGrey,
+                ),
+              ),
+            ],
+          ),
+        ));
+        continue;
+      }
+
+      // "Bow to Shri Sai" ending
+      if (trimmed.contains('Bow to Shri Sai')) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(top: 32, bottom: 16),
+          child: Center(
+            child: Text(
+              trimmed,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontStyle: FontStyle.italic,
+                    color: AppColors.saffron,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+            ),
+          ),
+        ));
+        continue;
+      }
+
+      // Footnote text (after ---)
+      if (inFootnotes) {
+        widgets.add(_FootnoteWidget(text: trimmed));
+        continue;
+      }
+
+      // Regular paragraph
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Text(
+          trimmed,
+          textAlign: TextAlign.left,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                height: 1.8,
+                fontSize: 17,
+              ),
+        ),
+      ));
+    }
+
+    return widgets;
+  }
+}
+
+/// Expandable footnote widget — tap to show/hide footnote text.
+class _FootnoteWidget extends StatefulWidget {
+  final String text;
+  const _FootnoteWidget({required this.text});
+
+  @override
+  State<_FootnoteWidget> createState() => _FootnoteWidgetState();
+}
+
+class _FootnoteWidgetState extends State<_FootnoteWidget> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    // Show first ~60 chars as preview, full text when expanded
+    final preview = widget.text.length > 60
+        ? '${widget.text.substring(0, 60)}...'
+        : widget.text;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: () => setState(() => _expanded = !_expanded),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.saffron.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.lightGrey),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                _expanded ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+                color: AppColors.lightText,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _expanded ? widget.text : preview,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: AppColors.mediumText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

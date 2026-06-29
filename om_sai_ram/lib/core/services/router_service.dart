@@ -1,7 +1,6 @@
 // Om Sai Ram
 // Router service — declarative navigation using GoRouter.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/login_screen.dart';
@@ -21,9 +20,9 @@ import '../../shared/widgets/app_shell.dart';
 class AppRoutes {
   AppRoutes._();
 
+  static const String home = '/';
   static const String login = '/login';
   static const String signup = '/signup';
-  static const String home = '/';
   static const String groups = '/groups';
   static const String groupDetail = '/groups/:id';
   static const String createGroup = '/groups/create';
@@ -31,6 +30,14 @@ class AppRoutes {
   static const String chapterReader = '/reader/:chapterId';
   static const String faq = '/faq';
   static const String profile = '/profile';
+
+  /// Routes that require authentication.
+  static const _authRequired = ['/groups', '/profile'];
+
+  /// Whether a given route requires login.
+  static bool requiresAuth(String location) {
+    return _authRequired.any((r) => location.startsWith(r));
+  }
 }
 
 /// GoRouter provider — rebuilds when auth state changes.
@@ -41,18 +48,22 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.home,
     debugLogDiagnostics: true,
 
-    // Redirect unauthenticated users to login
     redirect: (context, state) {
       final isLoggedIn = authState.isAuthenticated;
-      final isOnAuthPage = state.matchedLocation == AppRoutes.login ||
-          state.matchedLocation == AppRoutes.signup;
+      final location = state.matchedLocation;
+      final isOnAuthPage = location == AppRoutes.login ||
+          location == AppRoutes.signup;
 
-      if (!isLoggedIn && !isOnAuthPage) {
+      // If accessing a protected route without login → redirect to login
+      if (!isLoggedIn && AppRoutes.requiresAuth(location)) {
         return AppRoutes.login;
       }
+
+      // If logged in and on auth page → go to home
       if (isLoggedIn && isOnAuthPage) {
         return AppRoutes.home;
       }
+
       return null;
     },
 
@@ -72,7 +83,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => AppShell(child: child),
         routes: [
           GoRoute(
-            path: AppRoutes.home,
+            path: '/',
             builder: (context, state) => const HomeScreen(),
           ),
           GoRoute(

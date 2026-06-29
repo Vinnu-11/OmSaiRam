@@ -12,6 +12,8 @@ class Chapter extends Equatable {
   final int number;
   final String title;
   final String content;
+  final String? heading;
+  final String? chapterLabel;
   final String language;
   final int version;
 
@@ -20,6 +22,8 @@ class Chapter extends Equatable {
     required this.number,
     required this.title,
     required this.content,
+    this.heading,
+    this.chapterLabel,
     this.language = 'en',
     this.version = 1,
   });
@@ -30,6 +34,8 @@ class Chapter extends Equatable {
       number: json['number'] as int,
       title: json['title'] as String,
       content: json['content'] as String,
+      heading: json['heading'] as String?,
+      chapterLabel: json['chapterLabel'] as String?,
       language: json['language'] as String? ?? 'en',
       version: json['version'] as int? ?? 1,
     );
