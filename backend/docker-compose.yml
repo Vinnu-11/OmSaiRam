@@ -1,0 +1,46 @@
+# Om Sai Ram
+# Docker Compose — local development environment.
+# Runs FastAPI backend + PostgreSQL database.
+
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: omsairam-db
+    environment:
+      POSTGRES_USER: omsairam
+      POSTGRES_PASSWORD: omsairam
+      POSTGRES_DB: omsairam
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omsairam"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omsairam-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://omsairam:omsairam@db:5432/omsairam
+      JWT_SECRET_KEY: dev-secret-change-in-production
+      DEBUG: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/code/app  # Hot-reload during development
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:

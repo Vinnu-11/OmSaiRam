@@ -1,0 +1,43 @@
+// Om Sai Ram
+// API and configuration constants.
+
+/// API and configuration constants.
+/// Base URLs and endpoints are defined here for easy environment switching.
+class AppConstants {
+  AppConstants._();
+
+  // API Configuration
+  // Change this to your production URL when deploying
+  static const String baseUrl = 'http://10.0.2.2:8000'; // Android emulator localhost
+  static const String apiVersion = '/api/v1';
+  static const String apiBaseUrl = '$baseUrl$apiVersion';
+
+  // Auth endpoints
+  static const String loginEndpoint = '/auth/login';
+  static const String registerEndpoint = '/auth/register';
+  static const String refreshEndpoint = '/auth/refresh';
+  static const String socialAuthEndpoint = '/auth/social';
+
+  // Group endpoints
+  static const String groupsEndpoint = '/groups';
+  static const String joinGroupEndpoint = '/groups/join';
+
+  // Content endpoints
+  static const String contentVersionsEndpoint = '/content/versions';
+  static const String chaptersEndpoint = '/content/chapters';
+
+  // Progress endpoints
+  static const String progressEndpoint = '/progress';
+
+  // Storage keys
+  static const String accessTokenKey = 'access_token';
+  static const String refreshTokenKey = 'refresh_token';
+  static const String userDataKey = 'user_data';
+
+  // Sai Satcharita
+  static const int totalChapters = 53;
+  static const int saptahDays = 7;
+
+  // Pagination
+  static const int defaultPageSize = 20;
+}
