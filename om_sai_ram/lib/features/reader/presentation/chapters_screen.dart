@@ -167,7 +167,7 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
                           style: TextStyle(
                             color: AppColors.saffron,
                             fontWeight: FontWeight.w700,
-                            fontSize: chapter.chapterLabel != null && chapter.chapterLabel!.length > 2 ? 11 : 15,
+                            fontSize: (chapter.chapterLabel != null && chapter.chapterLabel!.contains('-')) ? 10 : 15,
                           ),
                         ),
                       ),

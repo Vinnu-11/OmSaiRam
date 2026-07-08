@@ -58,7 +58,9 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${AppStrings.chapter} ${widget.chapterId}'),
+        title: chapterAsync.whenData((ch) => ch).valueOrNull != null
+            ? Text('${AppStrings.chapter} ${chapterAsync.value!.chapterLabel ?? chapterAsync.value!.number}')
+            : Text('${AppStrings.chapter} ${widget.chapterId}'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
           child: LinearProgressIndicator(
@@ -120,55 +122,53 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Chapter label badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.saffron.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+                // Chapter label — centered, prominent
+                Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        'Chapter ${chapter.chapterLabel ?? chapter.number}',
+                        style: TextStyle(
+                          color: AppColors.saffron,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 2.0,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 1.5,
+                            decoration: BoxDecoration(
+                              color: AppColors.saffron.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: AppColors.saffron,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 32,
+                            height: 1.5,
+                            decoration: BoxDecoration(
+                              color: AppColors.saffron.withOpacity(0.4),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    'Chapter ${chapter.chapterLabel ?? chapter.number}',
-                    style: TextStyle(
-                      color: AppColors.saffron,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Chapter title
-                Text(
-                  chapter.title,
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        fontSize: 22,
-                        height: 1.3,
-                      ),
-                ),
-                const SizedBox(height: 20),
-
-                // Decorative divider
-                Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: AppColors.saffron,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      width: 8,
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: AppColors.saffron.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ],
                 ),
                 const SizedBox(height: 28),
 
@@ -249,8 +249,31 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
     );
   }
 
+  /// Parses "N. text" footnote lines after --- into a map keyed by number.
+  Map<int, String> _parseFootnotes(String content) {
+    final result = <int, String>{};
+    if (!content.contains('---')) return result;
+    final afterSep = content.substring(content.indexOf('---') + 3).trim();
+    for (final line in afterSep.split('\n')) {
+      final trimmed = line.trim();
+      final match = RegExp(r'^(\d+)\.\s+(.+)').firstMatch(trimmed);
+      if (match != null) {
+        result[int.parse(match.group(1)!)] = match.group(2)!;
+      }
+    }
+    return result;
+  }
+
   /// Builds structured content widgets from the markdown-like chapter content.
   List<Widget> _buildContentWidgets(BuildContext context, String content) {
+    final footnotes = _parseFootnotes(content);
+    // One GlobalKey per footnote number — only the first occurrence gets the anchor.
+    final footnoteKeys = <int, GlobalKey>{
+      for (final n in footnotes.keys) n: GlobalKey(),
+    };
+    // Track which footnote numbers have already been assigned their anchor key.
+    final usedFootnoteKeys = <int>{};
+
     final blocks = content.split('\n\n');
     final widgets = <Widget>[];
     bool inFootnotes = false;
@@ -261,20 +284,20 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
 
       // Main heading: # TITLE
       if (trimmed.startsWith('# ')) {
-        // Already shown in the header, skip
         continue;
       }
 
       // Subtitle: _italic text_
       if (trimmed.startsWith('_') && trimmed.endsWith('_')) {
         widgets.add(Padding(
-          padding: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.only(bottom: 28),
           child: Text(
             trimmed.substring(1, trimmed.length - 1),
+            textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontStyle: FontStyle.italic,
                   fontSize: 15,
-                  height: 1.6,
+                  height: 1.7,
                   color: AppColors.mediumText,
                 ),
           ),
@@ -305,12 +328,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
           padding: const EdgeInsets.symmetric(vertical: 20),
           child: Row(
             children: [
-              Expanded(
-                child: Container(
-                  height: 1,
-                  color: AppColors.lightGrey,
-                ),
-              ),
+              Expanded(child: Container(height: 1, color: AppColors.lightGrey)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
@@ -322,12 +340,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                   ),
                 ),
               ),
-              Expanded(
-                child: Container(
-                  height: 1,
-                  color: AppColors.lightGrey,
-                ),
-              ),
+              Expanded(child: Container(height: 1, color: AppColors.lightGrey)),
             ],
           ),
         ));
@@ -354,83 +367,181 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
         continue;
       }
 
-      // Footnote text (after ---)
+      // Footnote definition lines (after ---)
       if (inFootnotes) {
-        widgets.add(_FootnoteWidget(text: trimmed));
+        final match = RegExp(r'^(\d+)\.\s+(.+)').firstMatch(trimmed);
+        if (match != null) {
+          final num = int.parse(match.group(1)!);
+          final text = match.group(2)!;
+          // Only the first occurrence of a given number gets the scroll anchor key.
+          final key = usedFootnoteKeys.contains(num) ? null : footnoteKeys[num];
+          usedFootnoteKeys.add(num);
+          widgets.add(_FootnoteEntry(key: key, number: num, text: text));
+        }
         continue;
       }
 
-      // Regular paragraph
-      widgets.add(Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Text(
-          trimmed,
-          textAlign: TextAlign.left,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                height: 1.8,
-                fontSize: 17,
-              ),
-        ),
-      ));
+      // Regular paragraph — render with tappable footnote superscripts
+      if (footnotes.isNotEmpty) {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _ParagraphWithFootnoteLinks(
+            text: trimmed,
+            footnoteKeys: footnoteKeys,
+            scrollController: _scrollController,
+            context: context,
+          ),
+        ));
+      } else {
+        widgets.add(Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Text(
+            trimmed,
+            textAlign: TextAlign.left,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  height: 1.8,
+                  fontSize: 17,
+                ),
+          ),
+        ));
+      }
     }
 
     return widgets;
   }
 }
 
-/// Expandable footnote widget — tap to show/hide footnote text.
-class _FootnoteWidget extends StatefulWidget {
+/// Renders a paragraph with inline footnote numbers as tappable superscript links.
+/// Pattern matched: a word followed by a standalone number that has a footnote entry.
+class _ParagraphWithFootnoteLinks extends StatelessWidget {
   final String text;
-  const _FootnoteWidget({required this.text});
+  final Map<int, GlobalKey> footnoteKeys;
+  final ScrollController scrollController;
+  final BuildContext context;
+
+  const _ParagraphWithFootnoteLinks({
+    required this.text,
+    required this.footnoteKeys,
+    required this.scrollController,
+    required this.context,
+  });
+
+  void _scrollToFootnote(int number) {
+    final key = footnoteKeys[number];
+    if (key?.currentContext == null) return;
+    Scrollable.ensureVisible(
+      key!.currentContext!,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      alignment: 0.2,
+    );
+  }
 
   @override
-  State<_FootnoteWidget> createState() => _FootnoteWidgetState();
+  Widget build(BuildContext ctx) {
+    // Match standalone footnote numbers in text: word boundary, 1–2 digits, not part of year/larger number
+    final pattern = RegExp(r'(\s)(\d{1,2})(?=[\s,;.\)]|$)');
+    final spans = <InlineSpan>[];
+    int last = 0;
+
+    for (final match in pattern.allMatches(text)) {
+      final num = int.tryParse(match.group(2)!);
+      if (num == null || !footnoteKeys.containsKey(num)) continue;
+
+      // Text before this match (include the leading space from group 1)
+      if (match.start > last) {
+        spans.add(TextSpan(text: text.substring(last, match.start + 1)));
+      } else {
+        spans.add(TextSpan(text: match.group(1)));
+      }
+
+      // Tappable superscript
+      spans.add(WidgetSpan(
+        alignment: PlaceholderAlignment.top,
+        child: GestureDetector(
+          onTap: () => _scrollToFootnote(num),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            decoration: BoxDecoration(
+              color: AppColors.saffron.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '$num',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppColors.saffron,
+                height: 1,
+              ),
+            ),
+          ),
+        ),
+      ));
+
+      last = match.end;
+    }
+
+    if (last < text.length) {
+      spans.add(TextSpan(text: text.substring(last)));
+    }
+
+    final bodyStyle = Theme.of(ctx).textTheme.bodyLarge?.copyWith(
+          height: 1.8,
+          fontSize: 17,
+        );
+
+    return spans.length == 1 && spans.first is TextSpan
+        ? Text(text, style: bodyStyle)
+        : RichText(
+            text: TextSpan(style: bodyStyle, children: spans),
+          );
+  }
 }
 
-class _FootnoteWidgetState extends State<_FootnoteWidget> {
-  bool _expanded = false;
+/// A single footnote entry with an anchor key for scroll targeting.
+class _FootnoteEntry extends StatelessWidget {
+  final int number;
+  final String text;
+
+  const _FootnoteEntry({super.key, required this.number, required this.text});
 
   @override
   Widget build(BuildContext context) {
-    // Show first ~60 chars as preview, full text when expanded
-    final preview = widget.text.length > 60
-        ? '${widget.text.substring(0, 60)}...'
-        : widget.text;
-
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: GestureDetector(
-        onTap: () => setState(() => _expanded = !_expanded),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.saffron.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.lightGrey),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                _expanded ? Icons.expand_less : Icons.expand_more,
-                size: 18,
-                color: AppColors.lightText,
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            margin: const EdgeInsets.only(top: 1, right: 10),
+            decoration: BoxDecoration(
+              color: AppColors.saffron.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '$number',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppColors.saffron,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _expanded ? widget.text : preview,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.5,
-                    color: AppColors.mediumText,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.6,
+                color: AppColors.mediumText,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

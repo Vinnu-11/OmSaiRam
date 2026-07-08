@@ -172,7 +172,7 @@ class AppTheme {
       ),
 
       // Cards — subtle shadow, rounded
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.white,
         elevation: 1,
         shape: RoundedRectangleBorder(
