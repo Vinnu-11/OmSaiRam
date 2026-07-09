@@ -21,6 +21,8 @@ class Group extends Equatable {
   final String inviteCode;
   final String createdBy;
   final int memberCount;
+  final int chaptersPerWeek;
+  final int currentWeek;
   final DateTime createdAt;
 
   const Group({
@@ -31,6 +33,8 @@ class Group extends Equatable {
     required this.inviteCode,
     required this.createdBy,
     required this.memberCount,
+    this.chaptersPerWeek = 2,
+    this.currentWeek = 1,
     required this.createdAt,
   });
 
@@ -43,6 +47,8 @@ class Group extends Equatable {
       inviteCode: json['invite_code'] as String,
       createdBy: json['created_by'] as String,
       memberCount: json['member_count'] as int? ?? 0,
+      chaptersPerWeek: json['chapters_per_week'] as int? ?? 2,
+      currentWeek: json['current_week'] as int? ?? 1,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -56,6 +62,8 @@ class Group extends Equatable {
       'invite_code': inviteCode,
       'created_by': createdBy,
       'member_count': memberCount,
+      'chapters_per_week': chaptersPerWeek,
+      'current_week': currentWeek,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -64,13 +72,20 @@ class Group extends Equatable {
   List<Object?> get props => [id, name, mode, inviteCode, createdBy];
 }
 
+/// Role a member holds within a group.
+enum GroupRole {
+  admin,      // Created the group; can assign chapters and manage members
+  groupLead,  // Trusted helper; can assign chapters but not delete the group
+  member,     // Regular participant
+}
+
 /// Represents a member within a group.
 class GroupMember extends Equatable {
   final String id;
   final String userId;
   final String name;
   final String? avatarUrl;
-  final String role; // 'admin' or 'member'
+  final String role; // 'admin', 'group_lead', or 'member'
   final DateTime joinedAt;
 
   const GroupMember({
@@ -94,6 +109,19 @@ class GroupMember extends Equatable {
   }
 
   bool get isAdmin => role == 'admin';
+  bool get isGroupLead => role == 'group_lead';
+  bool get canAssign => role == 'admin' || role == 'group_lead';
+
+  GroupRole get groupRole {
+    switch (role) {
+      case 'admin':
+        return GroupRole.admin;
+      case 'group_lead':
+        return GroupRole.groupLead;
+      default:
+        return GroupRole.member;
+    }
+  }
 
   @override
   List<Object?> get props => [id, userId, name, role];

@@ -33,6 +33,7 @@ class AuthRepository {
     required String name,
     required String email,
     required String password,
+    String? phoneNumber,
   }) async {
     final response = await _apiClient.post(
       AppConstants.registerEndpoint,
@@ -40,6 +41,7 @@ class AuthRepository {
         'name': name,
         'email': email,
         'password': password,
+        if (phoneNumber != null) 'phone_number': phoneNumber,
       },
     );
 
@@ -84,6 +86,35 @@ class AuthRepository {
       },
     );
 
+    await _storeTokens(response.data);
+    return User.fromJson(response.data['user']);
+  }
+
+  /// Sends an OTP to the given phone number.
+  /// Returns the number of minutes until the OTP expires.
+  Future<int> sendPhoneOtp(String phoneNumber) async {
+    final response = await _apiClient.post(
+      AppConstants.phoneSendOtpEndpoint,
+      data: {'phone_number': phoneNumber},
+    );
+    return response.data['expires_in_minutes'] as int? ?? 10;
+  }
+
+  /// Verifies the OTP. On success returns the authenticated [User].
+  /// Pass [name] only when creating a new account (first sign-up).
+  Future<User> verifyPhoneOtp({
+    required String phoneNumber,
+    required String otp,
+    String? name,
+  }) async {
+    final response = await _apiClient.post(
+      AppConstants.phoneVerifyOtpEndpoint,
+      data: {
+        'phone_number': phoneNumber,
+        'otp': otp,
+        if (name != null) 'name': name,
+      },
+    );
     await _storeTokens(response.data);
     return User.fromJson(response.data['user']);
   }

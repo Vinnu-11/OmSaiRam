@@ -17,6 +17,8 @@ class AppConstants {
   static const String registerEndpoint = '/auth/register';
   static const String refreshEndpoint = '/auth/refresh';
   static const String socialAuthEndpoint = '/auth/social';
+  static const String phoneSendOtpEndpoint = '/auth/phone/send-otp';
+  static const String phoneVerifyOtpEndpoint = '/auth/phone/verify-otp';
 
   // Group endpoints
   static const String groupsEndpoint = '/groups';
@@ -25,6 +27,9 @@ class AppConstants {
   // Content endpoints
   static const String contentVersionsEndpoint = '/content/versions';
   static const String chaptersEndpoint = '/content/chapters';
+
+  // Assignment endpoints
+  static const String assignmentsEndpoint = '/assignments';
 
   // Progress endpoints
   static const String progressEndpoint = '/progress';

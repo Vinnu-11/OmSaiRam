@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     Column,
     String,
     Integer,
@@ -29,10 +30,11 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, default=generate_uuid)
-    email = Column(String(255), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=True, index=True)  # nullable for phone-only users
+    phone_number = Column(String(20), unique=True, nullable=True, index=True)
     name = Column(String(255), nullable=False)
-    password_hash = Column(String(255), nullable=True)  # Null for social auth users
-    auth_provider = Column(String(50), default="email")  # email, google, apple
+    password_hash = Column(String(255), nullable=True)  # Null for social/phone auth users
+    auth_provider = Column(String(50), default="email")  # email, google, apple, phone
     avatar_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -52,6 +54,10 @@ class Group(Base):
     mode = Column(String(20), nullable=False, default="chapter_wise")  # chapter_wise, saptah
     invite_code = Column(String(8), unique=True, nullable=False, index=True)
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
+    # How many chapters to assign per week (2 or 3). Used for auto-scheduling.
+    chapters_per_week = Column(Integer, default=2)
+    # Current reading week number (1-based). Auto-increments each week.
+    current_week = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -67,7 +73,7 @@ class GroupMember(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     group_id = Column(String, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
-    role = Column(String(20), default="member")  # admin, member
+    role = Column(String(20), default="member")  # admin, group_lead, member
     joined_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -101,6 +107,10 @@ class ReadingAssignment(Base):
     group_id = Column(String, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     chapter_id = Column(Integer, ForeignKey("chapters.id"), nullable=False)
+    # Which week this assignment belongs to (for weekly scheduling)
+    week_number = Column(Integer, default=1)
+    # The Monday of the week this chapter should be read
+    scheduled_date = Column(DateTime, nullable=True)
     assigned_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
@@ -121,3 +131,55 @@ class ReadingProgress(Base):
 
     # Relationships
     assignment = relationship("ReadingAssignment", back_populates="progress")
+
+
+class GroupMessage(Base):
+    """A chat message posted to a group."""
+
+    __tablename__ = "group_messages"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    group_id = Column(String, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User")
+    group = relationship("Group")
+
+
+class PhoneOtp(Base):
+    """One-time password sent to a phone number for authentication."""
+
+    __tablename__ = "phone_otps"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    phone_number = Column(String(20), nullable=False, index=True)
+    otp_hash = Column(String(255), nullable=False)
+    # True once this OTP has been successfully verified
+    is_used = Column(Boolean, default=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ChapterHighlightComment(Base):
+    """A comment tied to a highlighted paragraph/verse in a chapter, shared with the group."""
+
+    __tablename__ = "chapter_highlight_comments"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    group_id = Column(String, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    chapter_id = Column(Integer, ForeignKey("chapters.id"), nullable=False)
+    # The highlighted text snippet (up to 500 chars) so it can be shown in context
+    highlighted_text = Column(String(500), nullable=False)
+    # Zero-based paragraph index within the chapter for scroll-to navigation
+    paragraph_index = Column(Integer, nullable=False, default=0)
+    comment = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = relationship("User")
+    chapter = relationship("Chapter")
+    group = relationship("Group")

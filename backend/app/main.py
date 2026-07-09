@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .database import engine, Base
-from .routers import auth, groups, assignments, progress, content
+from .routers import auth, groups, assignments, progress, content, group_chat
 
 
 @asynccontextmanager
@@ -67,6 +67,12 @@ app.include_router(
     content.router,
     prefix=f"/api/{settings.api_version}/content",
     tags=["Content"],
+)
+
+app.include_router(
+    group_chat.router,
+    prefix=f"/api/{settings.api_version}/groups",
+    tags=["Group Chat"],
 )
 
 

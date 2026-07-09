@@ -81,6 +81,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String name,
     required String email,
     required String password,
+    String? phoneNumber,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -88,6 +89,40 @@ class AuthNotifier extends StateNotifier<AuthState> {
         name: name,
         email: email,
         password: password,
+        phoneNumber: phoneNumber,
+      );
+      state = AuthState(user: user);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _parseError(e));
+    }
+  }
+
+  /// Sends an OTP to the given phone number.
+  /// Returns the expiry duration in minutes on success, or throws.
+  Future<int> sendPhoneOtp(String phoneNumber) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final expiryMinutes = await _repository.sendPhoneOtp(phoneNumber);
+      state = state.copyWith(isLoading: false);
+      return expiryMinutes;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _parseError(e));
+      rethrow;
+    }
+  }
+
+  /// Verifies the OTP and logs in (or creates a new account if [name] is given).
+  Future<void> verifyPhoneOtp({
+    required String phoneNumber,
+    required String otp,
+    String? name,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final user = await _repository.verifyPhoneOtp(
+        phoneNumber: phoneNumber,
+        otp: otp,
+        name: name,
       );
       state = AuthState(user: user);
     } catch (e) {
@@ -143,10 +178,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     // HTTP status-specific errors
     if (errStr.contains('409')) {
-      return 'An account with this email already exists.';
+      return 'An account with this email or mobile number already exists.';
     }
-    if (errStr.contains('401') || errStr.contains('400')) {
-      return 'Invalid credentials. Please try again.';
+    if (errStr.contains('404')) {
+      return 'No account found for this number.';
+    }
+    if (errStr.contains('401')) {
+      return 'Invalid or expired OTP. Please try again.';
+    }
+    if (errStr.contains('400')) {
+      return 'Invalid details. Please check and try again.';
     }
     if (errStr.contains('422')) {
       return 'Please check your input and try again.';

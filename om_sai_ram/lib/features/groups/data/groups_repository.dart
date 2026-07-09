@@ -36,6 +36,7 @@ class GroupsRepository {
     required String name,
     String? description,
     required ReadingMode mode,
+    int chaptersPerWeek = 2,
   }) async {
     final response = await _apiClient.post(
       AppConstants.groupsEndpoint,
@@ -43,6 +44,7 @@ class GroupsRepository {
         'name': name,
         'description': description,
         'mode': mode == ReadingMode.saptah ? 'saptah' : 'chapter_wise',
+        'chapters_per_week': chaptersPerWeek,
       },
     );
     return Group.fromJson(response.data);
@@ -80,5 +82,17 @@ class GroupsRepository {
   /// Deletes a group (admin only).
   Future<void> deleteGroup(String groupId) async {
     await _apiClient.delete('${AppConstants.groupsEndpoint}/$groupId');
+  }
+
+  /// Changes a member's role (admin only).
+  Future<void> setMemberRole({
+    required String groupId,
+    required String userId,
+    required String role,
+  }) async {
+    await _apiClient.patch(
+      '${AppConstants.groupsEndpoint}/$groupId/members/role',
+      data: {'user_id': userId, 'role': role},
+    );
   }
 }

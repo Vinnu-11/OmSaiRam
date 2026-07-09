@@ -21,9 +21,18 @@ class AppStrings {
   static const String orContinueWith = 'Or continue with';
   static const String signInWithGoogle = 'Continue with Google';
   static const String signInWithApple = 'Continue with Apple';
+  static const String signInWithPhone = 'Continue with Mobile';
   static const String dontHaveAccount = "Don't have an account? ";
   static const String alreadyHaveAccount = 'Already have an account? ';
   static const String resetPassword = 'Reset Password';
+  static const String mobileNumber = 'Mobile Number';
+  static const String mobileNumberHint = '+91 98765 43210';
+  static const String enterOtp = 'Enter OTP';
+  static const String otpSentTo = 'OTP sent to';
+  static const String resendOtp = 'Resend OTP';
+  static const String verifyOtp = 'Verify & Login';
+  static const String sendOtp = 'Send OTP';
+  static const String otpExpiry = 'OTP valid for 10 minutes';
 
   // Navigation
   static const String home = 'Home';
@@ -39,8 +48,14 @@ class AppStrings {
   static const String inviteCode = 'Invite Code';
   static const String members = 'Members';
   static const String assignments = 'Assignments';
+  static const String schedule = 'Schedule';
+  static const String groupChat = 'Chat';
   static const String chapterWise = 'Chapter-wise';
   static const String weeklySaptah = 'Weekly Saptah';
+  static const String groupLead = 'Group Lead';
+  static const String memberLabel = 'Member';
+  static const String autoSchedule = 'Auto-Schedule';
+  static const String nextWeek = 'Next Week';
 
   // Reader
   static const String chapters = 'Chapters';

@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
@@ -26,6 +27,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
@@ -55,6 +57,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
     _animController.dispose();
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -64,10 +67,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
 
+    final phone = _phoneController.text.trim();
     await ref.read(authStateProvider.notifier).signup(
           name: _nameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text,
+          phoneNumber: phone.isEmpty ? null : phone,
         );
   }
 
@@ -170,6 +175,29 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                           decoration: const InputDecoration(
                             hintText: AppStrings.email,
                             prefixIcon: Icon(Icons.email_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Mobile number (optional)
+                        TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          textInputAction: TextInputAction.next,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[\d\s\+\-()]')),
+                          ],
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) return null;
+                            return Validators.phone(v);
+                          },
+                          decoration: InputDecoration(
+                            hintText: AppStrings.mobileNumberHint,
+                            prefixIcon: const Icon(Icons.phone_outlined),
+                            suffixText: 'Optional',
+                            suffixStyle: TextStyle(
+                                fontSize: 12, color: AppColors.lightText),
                           ),
                         ),
                         const SizedBox(height: 16),

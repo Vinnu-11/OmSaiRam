@@ -1,5 +1,15 @@
 # Om Sai Ram
-from .models import User, Group, GroupMember, Chapter, ReadingAssignment, ReadingProgress
+from .models import (
+    User,
+    Group,
+    GroupMember,
+    Chapter,
+    ReadingAssignment,
+    ReadingProgress,
+    GroupMessage,
+    ChapterHighlightComment,
+    PhoneOtp,
+)
 
 __all__ = [
     "User",
@@ -8,4 +18,7 @@ __all__ = [
     "Chapter",
     "ReadingAssignment",
     "ReadingProgress",
+    "GroupMessage",
+    "ChapterHighlightComment",
+    "PhoneOtp",
 ]

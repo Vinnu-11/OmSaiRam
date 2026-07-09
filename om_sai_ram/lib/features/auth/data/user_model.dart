@@ -8,15 +8,17 @@ import 'package:equatable/equatable.dart';
 /// Used across the app to display user info and manage permissions.
 class User extends Equatable {
   final String id;
-  final String email;
+  final String? email;
+  final String? phoneNumber;
   final String name;
   final String? avatarUrl;
-  final String authProvider; // 'email', 'google', 'apple'
+  final String authProvider; // 'email', 'google', 'apple', 'phone'
   final DateTime createdAt;
 
   const User({
     required this.id,
-    required this.email,
+    this.email,
+    this.phoneNumber,
     required this.name,
     this.avatarUrl,
     required this.authProvider,
@@ -27,7 +29,8 @@ class User extends Equatable {
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] as String,
-      email: json['email'] as String,
+      email: json['email'] as String?,
+      phoneNumber: json['phone_number'] as String?,
       name: json['name'] as String,
       avatarUrl: json['avatar_url'] as String?,
       authProvider: json['auth_provider'] as String? ?? 'email',
@@ -40,6 +43,7 @@ class User extends Equatable {
     return {
       'id': id,
       'email': email,
+      'phone_number': phoneNumber,
       'name': name,
       'avatar_url': avatarUrl,
       'auth_provider': authProvider,
@@ -48,5 +52,5 @@ class User extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, email, name, avatarUrl, authProvider];
+  List<Object?> get props => [id, email, phoneNumber, name, avatarUrl, authProvider];
 }

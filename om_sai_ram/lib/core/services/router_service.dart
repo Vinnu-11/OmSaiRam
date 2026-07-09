@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/signup_screen.dart';
+import '../../features/auth/presentation/phone_login_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/groups/presentation/groups_screen.dart';
 import '../../features/groups/presentation/group_detail_screen.dart';
@@ -23,6 +24,7 @@ class AppRoutes {
   static const String home = '/';
   static const String login = '/login';
   static const String signup = '/signup';
+  static const String phoneLogin = '/phone-login';
   static const String groups = '/groups';
   static const String groupDetail = '/groups/:id';
   static const String createGroup = '/groups/create';
@@ -76,6 +78,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.signup,
         builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.phoneLogin,
+        builder: (context, state) => const PhoneLoginScreen(),
       ),
 
       // Main app routes wrapped in bottom navigation shell

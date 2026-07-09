@@ -291,7 +291,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                     const SizedBox(height: 20),
 
-                    // Social login buttons
+                    // Mobile OTP login — most prominent for Indian users
+                    SocialLoginButton(
+                      label: AppStrings.signInWithPhone,
+                      icon: Icons.phone_android_outlined,
+                      onPressed: () => context.go(AppRoutes.phoneLogin),
+                    ),
+                    const SizedBox(height: 10),
                     SocialLoginButton(
                       label: AppStrings.signInWithGoogle,
                       icon: Icons.g_mobiledata_rounded,

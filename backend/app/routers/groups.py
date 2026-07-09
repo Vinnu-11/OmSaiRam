@@ -11,6 +11,8 @@ from ..database import get_db
 from ..models import User, Group, GroupMember
 from ..schemas import (
     CreateGroupRequest,
+    UpdateGroupRequest,
+    SetMemberRoleRequest,
     JoinGroupRequest,
     GroupResponse,
     GroupDetailResponse,
@@ -37,6 +39,8 @@ def _group_to_response(group: Group) -> GroupResponse:
         invite_code=group.invite_code,
         created_by=group.created_by,
         member_count=len(group.members),
+        chapters_per_week=group.chapters_per_week or 2,
+        current_week=group.current_week or 1,
         created_at=group.created_at,
     )
 
@@ -257,3 +261,84 @@ def leave_group(
 
     db.delete(membership)
     db.commit()
+
+
+@router.patch("/{group_id}/settings", response_model=GroupResponse)
+def update_group_settings(
+    group_id: str,
+    request: UpdateGroupRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update group schedule settings. Only admins can do this."""
+    membership = (
+        db.query(GroupMember)
+        .filter(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == current_user.id,
+            GroupMember.role == "admin",
+        )
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can update group settings")
+
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+
+    if request.chapters_per_week is not None:
+        group.chapters_per_week = request.chapters_per_week
+    if request.current_week is not None:
+        group.current_week = request.current_week
+
+    db.commit()
+    db.refresh(group)
+    return _group_to_response(group)
+
+
+@router.patch("/{group_id}/members/role", response_model=GroupMemberResponse)
+def set_member_role(
+    group_id: str,
+    request: SetMemberRoleRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Assign or change a member's role. Only the group admin can do this."""
+    admin_membership = (
+        db.query(GroupMember)
+        .filter(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == current_user.id,
+            GroupMember.role == "admin",
+        )
+        .first()
+    )
+    if not admin_membership:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the admin can change member roles")
+
+    target = (
+        db.query(GroupMember)
+        .filter(GroupMember.group_id == group_id, GroupMember.user_id == request.user_id)
+        .first()
+    )
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+
+    # Admin cannot demote themselves
+    if target.user_id == current_user.id and request.role != "admin":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin cannot change their own role")
+
+    target.role = request.role
+    db.commit()
+    db.refresh(target)
+
+    user = db.query(User).filter(User.id == target.user_id).first()
+    return GroupMemberResponse(
+        id=target.id,
+        user_id=target.user_id,
+        name=user.name if user else "Unknown",
+        avatar_url=user.avatar_url if user else None,
+        role=target.role,
+        joined_at=target.joined_at,
+    )

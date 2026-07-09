@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/reader_provider.dart';
+import '../../groups/data/group_chat_repository.dart';
+import '../../groups/providers/groups_provider.dart';
 
 /// Full-screen reader for a single Satcharita chapter.
 ///
@@ -267,27 +269,22 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
   /// Builds structured content widgets from the markdown-like chapter content.
   List<Widget> _buildContentWidgets(BuildContext context, String content) {
     final footnotes = _parseFootnotes(content);
-    // One GlobalKey per footnote number — only the first occurrence gets the anchor.
     final footnoteKeys = <int, GlobalKey>{
       for (final n in footnotes.keys) n: GlobalKey(),
     };
-    // Track which footnote numbers have already been assigned their anchor key.
     final usedFootnoteKeys = <int>{};
 
     final blocks = content.split('\n\n');
     final widgets = <Widget>[];
     bool inFootnotes = false;
+    int paragraphIndex = 0;
 
     for (final block in blocks) {
       final trimmed = block.trim();
       if (trimmed.isEmpty) continue;
 
-      // Main heading: # TITLE
-      if (trimmed.startsWith('# ')) {
-        continue;
-      }
+      if (trimmed.startsWith('# ')) continue;
 
-      // Subtitle: _italic text_
       if (trimmed.startsWith('_') && trimmed.endsWith('_')) {
         widgets.add(Padding(
           padding: const EdgeInsets.only(bottom: 28),
@@ -305,7 +302,6 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
         continue;
       }
 
-      // Subheading: ## Section Title
       if (trimmed.startsWith('## ')) {
         widgets.add(Padding(
           padding: const EdgeInsets.only(top: 24, bottom: 12),
@@ -321,7 +317,6 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
         continue;
       }
 
-      // Footnote separator: ---
       if (trimmed == '---') {
         inFootnotes = true;
         widgets.add(Padding(
@@ -331,14 +326,11 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
               Expanded(child: Container(height: 1, color: AppColors.lightGrey)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  'Notes',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.lightText,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                child: Text('Notes',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.lightText,
+                        fontWeight: FontWeight.w500)),
               ),
               Expanded(child: Container(height: 1, color: AppColors.lightGrey)),
             ],
@@ -347,7 +339,6 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
         continue;
       }
 
-      // "Bow to Shri Sai" ending
       if (trimmed.contains('Bow to Shri Sai')) {
         widgets.add(Padding(
           padding: const EdgeInsets.only(top: 32, bottom: 16),
@@ -367,13 +358,11 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
         continue;
       }
 
-      // Footnote definition lines (after ---)
       if (inFootnotes) {
         final match = RegExp(r'^(\d+)\.\s+(.+)').firstMatch(trimmed);
         if (match != null) {
           final num = int.parse(match.group(1)!);
           final text = match.group(2)!;
-          // Only the first occurrence of a given number gets the scroll anchor key.
           final key = usedFootnoteKeys.contains(num) ? null : footnoteKeys[num];
           usedFootnoteKeys.add(num);
           widgets.add(_FootnoteEntry(key: key, number: num, text: text));
@@ -381,33 +370,69 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
         continue;
       }
 
-      // Regular paragraph — render with tappable footnote superscripts
+      // Regular paragraph — long-press to share as highlight
+      final pIndex = paragraphIndex;
+      paragraphIndex++;
+
+      Widget textWidget;
       if (footnotes.isNotEmpty) {
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _ParagraphWithFootnoteLinks(
-            text: trimmed,
-            footnoteKeys: footnoteKeys,
-            scrollController: _scrollController,
-            context: context,
-          ),
-        ));
+        textWidget = _ParagraphWithFootnoteLinks(
+          text: trimmed,
+          footnoteKeys: footnoteKeys,
+          scrollController: _scrollController,
+          context: context,
+        );
       } else {
-        widgets.add(Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Text(
-            trimmed,
-            textAlign: TextAlign.left,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  height: 1.8,
-                  fontSize: 17,
-                ),
-          ),
-        ));
+        textWidget = Text(
+          trimmed,
+          textAlign: TextAlign.left,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                height: 1.8,
+                fontSize: 17,
+              ),
+        );
       }
+
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: GestureDetector(
+          onLongPress: () => _showShareHighlightSheet(
+            context,
+            text: trimmed,
+            paragraphIndex: pIndex,
+            chapterId: widget.chapterId,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: textWidget,
+          ),
+        ),
+      ));
     }
 
     return widgets;
+  }
+
+  void _showShareHighlightSheet(
+    BuildContext context, {
+    required String text,
+    required int paragraphIndex,
+    required int chapterId,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _ShareHighlightSheet(
+        highlightedText: text.length > 200 ? '${text.substring(0, 200)}…' : text,
+        paragraphIndex: paragraphIndex,
+        chapterId: chapterId,
+      ),
+    );
   }
 }
 
@@ -496,6 +521,202 @@ class _ParagraphWithFootnoteLinks extends StatelessWidget {
         : RichText(
             text: TextSpan(style: bodyStyle, children: spans),
           );
+  }
+}
+
+/// Bottom sheet that lets the user add a comment and share a highlighted verse with a group.
+class _ShareHighlightSheet extends ConsumerStatefulWidget {
+  final String highlightedText;
+  final int paragraphIndex;
+  final int chapterId;
+
+  const _ShareHighlightSheet({
+    required this.highlightedText,
+    required this.paragraphIndex,
+    required this.chapterId,
+  });
+
+  @override
+  ConsumerState<_ShareHighlightSheet> createState() => _ShareHighlightSheetState();
+}
+
+class _ShareHighlightSheetState extends ConsumerState<_ShareHighlightSheet> {
+  final TextEditingController _commentController = TextEditingController();
+  String? _selectedGroupId;
+  String? _selectedGroupName;
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = ref.watch(groupsProvider);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.format_quote_rounded, color: AppColors.saffron, size: 22),
+              const SizedBox(width: 8),
+              const Text('Share Highlight',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('Long press any verse to share it with your group',
+              style: TextStyle(fontSize: 12, color: AppColors.lightText)),
+          const SizedBox(height: 14),
+          // Highlighted text preview
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.saffron.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(10),
+              border: Border(left: BorderSide(color: AppColors.saffron, width: 3)),
+            ),
+            child: Text(
+              '"${widget.highlightedText}"',
+              style: TextStyle(
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.mediumText,
+                  fontSize: 13,
+                  height: 1.6),
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Group picker
+          if (groups.groups.isEmpty)
+            Text('You are not in any group yet.',
+                style: TextStyle(color: AppColors.lightText))
+          else ...[
+            Text('Share with:', style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: groups.groups.map((g) {
+                final selected = _selectedGroupId == g.id;
+                return GestureDetector(
+                  onTap: () => setState(() {
+                    _selectedGroupId = g.id;
+                    _selectedGroupName = g.name;
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.saffron.withOpacity(0.1)
+                          : AppColors.cream,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: selected ? AppColors.saffron : AppColors.lightGrey),
+                    ),
+                    child: Text(
+                      g.name,
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color:
+                              selected ? AppColors.saffron : AppColors.darkText),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+          const SizedBox(height: 14),
+          // Comment field
+          TextField(
+            controller: _commentController,
+            minLines: 2,
+            maxLines: 4,
+            decoration: InputDecoration(
+              hintText: 'Add your thought or reflection…',
+              hintStyle: TextStyle(color: AppColors.lightText, fontSize: 14),
+              filled: true,
+              fillColor: AppColors.cream,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: (_selectedGroupId == null || _loading)
+                  ? null
+                  : _shareHighlight,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.saffron,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _loading
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text('Share with Group',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _shareHighlight() async {
+    final comment = _commentController.text.trim();
+    if (comment.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please write your reflection first.')),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      await ref.read(groupChatRepositoryProvider).postHighlightComment(
+        groupId: _selectedGroupId!,
+        chapterId: widget.chapterId,
+        highlightedText: widget.highlightedText,
+        paragraphIndex: widget.paragraphIndex,
+        comment: comment,
+      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Shared with $_selectedGroupName!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not share. Please try again.')),
+        );
+      }
+    }
   }
 }
 

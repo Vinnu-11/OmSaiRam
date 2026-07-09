@@ -61,6 +61,7 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
     required String name,
     String? description,
     required ReadingMode mode,
+    int chaptersPerWeek = 2,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -68,6 +69,7 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
         name: name,
         description: description,
         mode: mode,
+        chaptersPerWeek: chaptersPerWeek,
       );
       state = GroupsState(groups: [...state.groups, group]);
       return true;

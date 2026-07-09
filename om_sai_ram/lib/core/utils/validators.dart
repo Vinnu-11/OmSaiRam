@@ -72,6 +72,31 @@ class Validators {
     return null;
   }
 
+  /// Validates a phone number (Indian mobile or international with country code).
+  static String? phone(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Mobile number is required';
+    }
+    // Strip spaces, dashes, parentheses
+    final digits = value.replaceAll(RegExp(r'[\s\-()]'), '');
+    // Accept +91XXXXXXXXXX or plain 10-digit Indian numbers or generic international
+    if (!RegExp(r'^\+?[1-9]\d{7,14}$').hasMatch(digits)) {
+      return 'Enter a valid mobile number (with country code if needed)';
+    }
+    return null;
+  }
+
+  /// Validates an OTP (4–8 digits).
+  static String? otp(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'OTP is required';
+    }
+    if (!RegExp(r'^\d{4,8}$').hasMatch(value.trim())) {
+      return 'Enter the OTP sent to your mobile';
+    }
+    return null;
+  }
+
   /// Validates an invite code format.
   static String? inviteCode(String? value) {
     if (value == null || value.trim().isEmpty) {

@@ -29,6 +29,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   ReadingMode _selectedMode = ReadingMode.chapterWise;
+  int _chaptersPerWeek = 2;
 
   @override
   void dispose() {
@@ -47,6 +48,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
               ? null
               : _descriptionController.text.trim(),
           mode: _selectedMode,
+          chaptersPerWeek: _chaptersPerWeek,
         );
 
     if (mounted && success) {
@@ -147,6 +149,50 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                 onTap: () {
                   setState(() => _selectedMode = ReadingMode.saptah);
                 },
+              ),
+
+              const SizedBox(height: 28),
+
+              // Chapters per week
+              Text('Chapters per Week',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(
+                'How many chapters should be read each week?',
+                style: TextStyle(color: AppColors.lightText, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [2, 3].map((n) {
+                  final selected = _chaptersPerWeek == n;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: InkWell(
+                      onTap: () => setState(() => _chaptersPerWeek = n),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppColors.saffron.withOpacity(0.08)
+                              : AppColors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: selected ? AppColors.saffron : AppColors.lightGrey,
+                            width: selected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Text(
+                          '$n chapters',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: selected ? AppColors.saffron : AppColors.darkText,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
 
               const SizedBox(height: 40),
