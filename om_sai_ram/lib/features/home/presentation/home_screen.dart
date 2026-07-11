@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/router_service.dart';
+import '../../../core/providers/reading_progress_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../groups/providers/groups_provider.dart';
 
@@ -39,6 +40,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
     final groupsState = ref.watch(groupsProvider);
+    final readingProgress = ref.watch(readingProgressProvider);
     final isLoggedIn = authState.isAuthenticated;
     final userName = authState.user?.name ?? 'Devotee';
 
@@ -100,6 +102,93 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
             ),
+
+            const SizedBox(height: 20),
+
+            // Streak + progress row
+            Row(
+              children: [
+                // Streak card
+                Expanded(
+                  child: _StatCard(
+                    icon: Icons.local_fire_department_rounded,
+                    iconColor: AppColors.deepOrange,
+                    value: '${readingProgress.currentStreak}',
+                    label: 'Day Streak',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Chapters read card
+                Expanded(
+                  child: _StatCard(
+                    icon: Icons.menu_book_rounded,
+                    iconColor: AppColors.saffron,
+                    value: '${readingProgress.completedChapters.length}',
+                    label: 'Chapters Read',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Bookmarks card
+                Expanded(
+                  child: _StatCard(
+                    icon: Icons.bookmark_rounded,
+                    iconColor: Colors.indigo,
+                    value: '${readingProgress.bookmarks.length}',
+                    label: 'Bookmarks',
+                  ),
+                ),
+              ],
+            ),
+
+            // Resume reading button (if there's a saved position)
+            if (readingProgress.resumeChapter != null) ...[
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () => context.go('/reader/${readingProgress.resumeChapter}'),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.saffron.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.saffron.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.saffron.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(Icons.play_circle_rounded, color: AppColors.saffron, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Continue Reading',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: AppColors.saffron,
+                              ),
+                            ),
+                            Text(
+                              'Chapter ${readingProgress.resumeChapter} · ${(readingProgress.resumePosition * 100).toStringAsFixed(0)}% complete',
+                              style: TextStyle(fontSize: 12, color: AppColors.mediumText),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.saffron),
+                    ],
+                  ),
+                ),
+              ),
+            ],
 
             const SizedBox(height: 28),
 
@@ -356,6 +445,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 16),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A compact stat card showing an icon, value, and label.
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String value;
+  final String label;
+
+  const _StatCard({
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.lightGrey),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: iconColor, size: 22),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: iconColor,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, color: AppColors.lightText),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

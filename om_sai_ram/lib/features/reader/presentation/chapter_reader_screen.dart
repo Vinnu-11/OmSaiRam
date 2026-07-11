@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/providers/reader_settings_provider.dart';
+import '../../../core/providers/reading_progress_provider.dart';
 import '../providers/reader_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../groups/data/assignments_repository.dart';
@@ -43,11 +45,27 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
   final ScrollController _scrollController = ScrollController();
   double _scrollProgress = 0.0;
   bool _completionPromptShown = false;
+  // Debounce position saves so we don't hammer SharedPreferences every frame.
+  DateTime? _lastPositionSave;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Restore scroll position if available
+    Future.microtask(() {
+      final progress = ref.read(readingProgressProvider);
+      if (progress.resumeChapter == widget.chapterId &&
+          progress.resumePosition > 0 &&
+          _scrollController.hasClients) {
+        final max = _scrollController.position.maxScrollExtent;
+        if (max > 0) {
+          _scrollController.jumpTo(progress.resumePosition * max);
+        }
+      }
+      // Record that the user opened a chapter today
+      ref.read(readingProgressProvider.notifier).recordReadingToday();
+    });
   }
 
   @override
@@ -64,12 +82,20 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
     final progress = _scrollController.offset / max;
     setState(() => _scrollProgress = progress);
 
+    // Save resume position every 2 seconds
+    final now = DateTime.now();
+    if (_lastPositionSave == null ||
+        now.difference(_lastPositionSave!).inSeconds >= 2) {
+      _lastPositionSave = now;
+      ref.read(readingProgressProvider.notifier)
+          .saveResumePosition(widget.chapterId, progress);
+    }
+
     // Show completion prompt once when user reaches ≥95% of the chapter
     if (progress >= 0.95 &&
         !_completionPromptShown &&
         widget.assignmentId != null) {
       _completionPromptShown = true;
-      // Small delay so the user sees they're near the end
       Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted) _showCompletionSheet();
       });
@@ -79,6 +105,8 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
   Future<void> _markCompleted(String assignmentId, String groupId) async {
     final repo = ref.read(assignmentsRepositoryProvider);
     await repo.updateProgress(assignmentId, 'completed');
+    await ref.read(readingProgressProvider.notifier)
+        .markChapterCompleted(widget.chapterId);
 
     // Post a chat message to the group
     final authUser = ref.read(authStateProvider).user;
@@ -131,11 +159,44 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
   Widget build(BuildContext context) {
     final chapterAsync = ref.watch(chapterProvider(widget.chapterId));
 
+    final progress = ref.watch(readingProgressProvider);
+    final settings = ref.watch(readerSettingsProvider);
+    final isBookmarked = progress.bookmarks.contains(widget.chapterId);
+
     return Scaffold(
       appBar: AppBar(
         title: chapterAsync.whenData((ch) => ch).valueOrNull != null
             ? Text('${AppStrings.chapter} ${chapterAsync.value!.chapterLabel ?? chapterAsync.value!.number}')
             : Text('${AppStrings.chapter} ${widget.chapterId}'),
+        actions: [
+          // Font size decrease
+          IconButton(
+            icon: const Icon(Icons.text_decrease, size: 20),
+            tooltip: 'Smaller text',
+            onPressed: settings.fontSize > minFontSize
+                ? () => ref.read(readerSettingsProvider.notifier).decreaseFontSize()
+                : null,
+          ),
+          // Font size increase
+          IconButton(
+            icon: const Icon(Icons.text_increase, size: 20),
+            tooltip: 'Larger text',
+            onPressed: settings.fontSize < maxFontSize
+                ? () => ref.read(readerSettingsProvider.notifier).increaseFontSize()
+                : null,
+          ),
+          // Bookmark
+          IconButton(
+            icon: Icon(
+              isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+              color: isBookmarked ? AppColors.saffron : null,
+            ),
+            tooltip: isBookmarked ? 'Remove bookmark' : 'Bookmark',
+            onPressed: () => ref
+                .read(readingProgressProvider.notifier)
+                .toggleBookmark(widget.chapterId),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
           child: LinearProgressIndicator(
@@ -197,6 +258,26 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Completed badge
+                if (progress.completedChapters.contains(widget.chapterId))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded, color: AppColors.success, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Completed',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.success,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 // Chapter label — centered, prominent
                 Center(
                   child: Column(
@@ -248,7 +329,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                 const SizedBox(height: 28),
 
                 // Chapter content — structured rendering
-                ..._buildContentWidgets(context, chapter.content),
+                ..._buildContentWidgets(context, chapter.content, settings.fontSize),
 
                 const SizedBox(height: 48),
 
@@ -340,7 +421,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
   }
 
   /// Builds structured content widgets from the markdown-like chapter content.
-  List<Widget> _buildContentWidgets(BuildContext context, String content) {
+  List<Widget> _buildContentWidgets(BuildContext context, String content, double fontSize) {
     final footnotes = _parseFootnotes(content);
     final footnoteKeys = <int, GlobalKey>{
       for (final n in footnotes.keys) n: GlobalKey(),
@@ -366,7 +447,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   fontStyle: FontStyle.italic,
-                  fontSize: 15,
+                  fontSize: fontSize - 2,
                   height: 1.7,
                   color: AppColors.mediumText,
                 ),
@@ -423,7 +504,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                     fontStyle: FontStyle.italic,
                     color: AppColors.saffron,
                     fontWeight: FontWeight.w600,
-                    fontSize: 16,
+                    fontSize: fontSize - 1,
                   ),
             ),
           ),
@@ -454,6 +535,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
           footnoteKeys: footnoteKeys,
           scrollController: _scrollController,
           context: context,
+          fontSize: fontSize,
         );
       } else {
         textWidget = Text(
@@ -461,7 +543,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
           textAlign: TextAlign.left,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 height: 1.8,
-                fontSize: 17,
+                fontSize: fontSize,
               ),
         );
       }
@@ -516,12 +598,14 @@ class _ParagraphWithFootnoteLinks extends StatelessWidget {
   final Map<int, GlobalKey> footnoteKeys;
   final ScrollController scrollController;
   final BuildContext context;
+  final double fontSize;
 
   const _ParagraphWithFootnoteLinks({
     required this.text,
     required this.footnoteKeys,
     required this.scrollController,
     required this.context,
+    this.fontSize = 17,
   });
 
   void _scrollToFootnote(int number) {
@@ -586,7 +670,7 @@ class _ParagraphWithFootnoteLinks extends StatelessWidget {
 
     final bodyStyle = Theme.of(ctx).textTheme.bodyLarge?.copyWith(
           height: 1.8,
-          fontSize: 17,
+          fontSize: fontSize,
         );
 
     return spans.length == 1 && spans.first is TextSpan

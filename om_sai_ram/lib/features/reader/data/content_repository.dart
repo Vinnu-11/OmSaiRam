@@ -24,27 +24,21 @@ final contentRepositoryProvider = Provider<ContentRepository>((ref) {
 /// while supporting content updates without app store releases.
 class ContentRepository {
   final ApiClient _apiClient;
-  List<Chapter>? _cachedChapters;
+  // Per-language cache so switching languages doesn't invalidate the other.
+  final Map<String, List<Chapter>> _cache = {};
 
   ContentRepository({required ApiClient apiClient}) : _apiClient = apiClient;
 
-  /// Loads all chapters, preferring cached data then bundled assets.
-  ///
-  /// Checks for server updates in the background.
+  /// Loads all chapters for the given language, using per-language cache.
   Future<List<Chapter>> getChapters({String language = 'en'}) async {
-    // Return cached data if available
-    if (_cachedChapters != null) return _cachedChapters!;
+    if (_cache.containsKey(language)) return _cache[language]!;
 
-    // Load from bundled assets
-    _cachedChapters = await _loadBundledChapters(language);
-
-    // Check for updates in background (non-blocking)
+    _cache[language] = await _loadBundledChapters(language);
     _checkForUpdates(language);
-
-    return _cachedChapters!;
+    return _cache[language]!;
   }
 
-  /// Returns a single chapter by its number.
+  /// Returns a single chapter by its number for the given language.
   Future<Chapter?> getChapter(int chapterNumber, {String language = 'en'}) async {
     final chapters = await getChapters(language: language);
     try {
@@ -62,7 +56,6 @@ class ContentRepository {
       final List<dynamic> jsonList = json.decode(jsonString);
       return jsonList.map((j) => Chapter.fromJson(j)).toList();
     } catch (e) {
-      // If bundled content fails, return empty list
       return [];
     }
   }
@@ -77,25 +70,28 @@ class ContentRepository {
       );
 
       final serverVersion = response.data['version'] as int;
-      final localVersion = _cachedChapters?.isNotEmpty == true
-          ? _cachedChapters!.first.version
-          : 0;
+      final cached = _cache[language];
+      final localVersion =
+          cached != null && cached.isNotEmpty ? cached.first.version : 0;
 
       if (serverVersion > localVersion) {
-        // Fetch updated content from server
         final chaptersResponse = await _apiClient.get(
           '${AppConstants.chaptersEndpoint}/$language',
         );
         final List<dynamic> data = chaptersResponse.data['chapters'];
-        _cachedChapters = data.map((j) => Chapter.fromJson(j)).toList();
+        _cache[language] = data.map((j) => Chapter.fromJson(j)).toList();
       }
     } catch (_) {
       // Server unavailable — continue with bundled content
     }
   }
 
-  /// Clears the chapter cache (useful for language switching).
-  void clearCache() {
-    _cachedChapters = null;
+  /// Clears the cache for one language, or all languages if null.
+  void clearCache([String? language]) {
+    if (language != null) {
+      _cache.remove(language);
+    } else {
+      _cache.clear();
+    }
   }
 }

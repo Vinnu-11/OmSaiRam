@@ -7,7 +7,12 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/router_service.dart';
+import '../../../core/services/notifications_service.dart';
+import '../../../core/providers/language_provider.dart';
+import '../../../core/providers/reader_settings_provider.dart';
+import '../../../core/providers/reading_progress_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../reader/providers/reader_provider.dart';
 
 /// Profile screen showing user info, settings, and logout.
 ///
@@ -22,6 +27,9 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
     final user = authState.user;
+    final langState = ref.watch(languageProvider);
+    final readerSettings = ref.watch(readerSettingsProvider);
+    final readingProgress = ref.watch(readingProgressProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -104,10 +112,38 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
 
+          // Reading stats row
+          Row(
+            children: [
+              _MiniStatCard(
+                icon: Icons.local_fire_department_rounded,
+                color: AppColors.deepOrange,
+                value: '${readingProgress.currentStreak}',
+                label: 'Streak',
+              ),
+              const SizedBox(width: 10),
+              _MiniStatCard(
+                icon: Icons.menu_book_rounded,
+                color: AppColors.saffron,
+                value: '${readingProgress.completedChapters.length}',
+                label: 'Read',
+              ),
+              const SizedBox(width: 10),
+              _MiniStatCard(
+                icon: Icons.bookmark_rounded,
+                color: Colors.indigo,
+                value: '${readingProgress.bookmarks.length}',
+                label: 'Saved',
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
           // Settings list
           Container(
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.lightGrey),
             ),
@@ -122,15 +158,41 @@ class ProfileScreen extends ConsumerWidget {
                 _SettingsTile(
                   icon: Icons.language_outlined,
                   title: AppStrings.language,
-                  subtitle: 'English',
-                  onTap: () {},
+                  subtitle: langState.appLanguage.label,
+                  onTap: () => _showLanguageDialog(context, ref, langState),
                 ),
                 Divider(height: 1, indent: 56, color: AppColors.lightGrey),
-                _SettingsTile(
-                  icon: Icons.notifications_outlined,
-                  title: AppStrings.notifications,
-                  onTap: () {},
+                // Dark mode toggle
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.mediumText.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      readerSettings.darkMode
+                          ? Icons.dark_mode_rounded
+                          : Icons.light_mode_rounded,
+                      color: AppColors.mediumText,
+                      size: 20,
+                    ),
+                  ),
+                  title: const Text(
+                    'Dark Mode',
+                    style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                  ),
+                  trailing: Switch(
+                    value: readerSettings.darkMode,
+                    onChanged: (_) =>
+                        ref.read(readerSettingsProvider.notifier).toggleDarkMode(),
+                    activeColor: AppColors.saffron,
+                  ),
                 ),
+                Divider(height: 1, indent: 56, color: AppColors.lightGrey),
+                _NotificationsTile(),
               ],
             ),
           ),
@@ -227,6 +289,18 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
+  void _showLanguageDialog(
+      BuildContext context, WidgetRef ref, LanguageState langState) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _LanguageSettingsSheet(langState: langState),
+    );
+  }
+
   void _showAboutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -258,6 +332,308 @@ class ProfileScreen extends ConsumerWidget {
             child: const Text('Close'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Bottom sheet for choosing app language and reader language.
+class _LanguageSettingsSheet extends ConsumerStatefulWidget {
+  final LanguageState langState;
+
+  const _LanguageSettingsSheet({required this.langState});
+
+  @override
+  ConsumerState<_LanguageSettingsSheet> createState() =>
+      _LanguageSettingsSheetState();
+}
+
+class _LanguageSettingsSheetState
+    extends ConsumerState<_LanguageSettingsSheet> {
+  late AppLanguage _appLang;
+  late AppLanguage _readerLang;
+
+  @override
+  void initState() {
+    super.initState();
+    _appLang = widget.langState.appLanguage;
+    _readerLang = widget.langState.readerLanguage;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      builder: (context, scrollController) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: Column(
+            children: [
+              // Fixed header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.language_outlined,
+                            color: AppColors.saffron, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Language Settings',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+
+              // Scrollable language lists
+              Expanded(
+                child: ListView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  children: [
+                    // App language section
+                    Text(
+                      'App Language',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.mediumText,
+                          ),
+                    ),
+                    const SizedBox(height: 10),
+                    ...AppLanguage.values.map((lang) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _langRow(
+                            lang: lang,
+                            selected: _appLang == lang,
+                            onTap: () => setState(() {
+                              _appLang = lang;
+                              _readerLang = lang;
+                            }),
+                          ),
+                        )),
+
+                    const SizedBox(height: 20),
+
+                    // Reader language section
+                    Text(
+                      'Reader Language',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.mediumText,
+                          ),
+                    ),
+                    Text(
+                      'The language used for the Satcharita text',
+                      style:
+                          TextStyle(fontSize: 12, color: AppColors.lightText),
+                    ),
+                    const SizedBox(height: 10),
+                    ...AppLanguage.values.map((lang) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _langRow(
+                            lang: lang,
+                            selected: _readerLang == lang,
+                            onTap: () =>
+                                setState(() => _readerLang = lang),
+                          ),
+                        )),
+
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+
+              // Fixed save button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _save,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.saffron,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Save',
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _langRow({
+    required AppLanguage lang,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color:
+              selected ? AppColors.saffron.withOpacity(0.08) : AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppColors.saffron : AppColors.lightGrey,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                lang.label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  color: selected ? AppColors.saffron : AppColors.darkText,
+                ),
+              ),
+            ),
+            if (selected)
+              Icon(Icons.check_circle_rounded,
+                  color: AppColors.saffron, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final notifier = ref.read(languageProvider.notifier);
+    await notifier.setAppLanguage(_appLang);
+    await notifier.setReaderLanguage(_readerLang);
+    // Reload chapters with the new reader language.
+    ref
+        .read(chaptersProvider.notifier)
+        .loadChapters(language: _readerLang.code);
+    if (mounted) Navigator.pop(context);
+  }
+}
+
+/// Notifications toggle — enables/disables daily verse reminder.
+class _NotificationsTile extends StatefulWidget {
+  @override
+  State<_NotificationsTile> createState() => _NotificationsTileState();
+}
+
+class _NotificationsTileState extends State<_NotificationsTile> {
+  bool _enabled = false;
+  final _svc = NotificationsService();
+
+  @override
+  void initState() {
+    super.initState();
+    _svc.isEnabled().then((v) => setState(() => _enabled = v));
+  }
+
+  Future<void> _toggle() async {
+    if (_enabled) {
+      await _svc.cancelDailyVerse();
+      setState(() => _enabled = false);
+    } else {
+      final granted = await _svc.requestPermissions();
+      if (!granted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please enable notifications in system settings.')),
+          );
+        }
+        return;
+      }
+      await _svc.scheduleDailyVerse(hour: 7, minute: 0);
+      setState(() => _enabled = true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Daily verse reminder set for 7:00 AM 🙏')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppColors.mediumText.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(Icons.notifications_outlined, color: AppColors.mediumText, size: 20),
+      ),
+      title: const Text('Daily Verse',
+          style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
+      subtitle: Text(
+        _enabled ? 'Reminder at 7:00 AM' : 'Off',
+        style: TextStyle(fontSize: 12, color: AppColors.lightText),
+      ),
+      trailing: Switch(
+        value: _enabled,
+        onChanged: (_) => _toggle(),
+        activeColor: AppColors.saffron,
+      ),
+    );
+  }
+}
+
+class _MiniStatCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String value;
+  final String label;
+
+  const _MiniStatCard({
+    required this.icon,
+    required this.color,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.18)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 6),
+            Text(value,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+            Text(label,
+                style: TextStyle(fontSize: 11, color: AppColors.lightText)),
+          ],
+        ),
       ),
     );
   }
