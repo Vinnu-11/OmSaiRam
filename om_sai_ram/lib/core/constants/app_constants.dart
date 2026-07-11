@@ -8,7 +8,7 @@ class AppConstants {
 
   // API Configuration
   // Change this to your production URL when deploying
-  static const String baseUrl = 'http://10.0.2.2:8000'; // Android emulator localhost
+  static const String baseUrl = 'http://localhost:8000'; // Web/desktop dev
   static const String apiVersion = '/api/v1';
   static const String apiBaseUrl = '$baseUrl$apiVersion';
 

@@ -44,19 +44,23 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
       : _repository = repository,
         super(const GroupsState());
 
-  /// Loads all groups for the current user.
+  /// Loads all groups for the current user. Replaces the list (no duplicates).
   Future<void> loadGroups() async {
+    // Skip if already loading to avoid duplicate concurrent calls
+    if (state.isLoading) return;
     state = state.copyWith(isLoading: true, error: null);
     try {
       final groups = await _repository.getMyGroups();
-      state = GroupsState(groups: groups);
+      // Deduplicate by id in case the server returns duplicates
+      final seen = <String>{};
+      final unique = groups.where((g) => seen.add(g.id)).toList();
+      state = GroupsState(groups: unique);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _parseError(e));
     }
   }
 
-  /// Creates a new group and adds it to the list.
-  /// Returns true on success, false on failure.
+  /// Creates a new group and adds it to the list (deduplicates by id).
   Future<bool> createGroup({
     required String name,
     String? description,
@@ -71,7 +75,8 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
         mode: mode,
         chaptersPerWeek: chaptersPerWeek,
       );
-      state = GroupsState(groups: [...state.groups, group]);
+      final updated = [...state.groups.where((g) => g.id != group.id), group];
+      state = GroupsState(groups: updated);
       return true;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: _parseError(e));

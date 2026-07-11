@@ -95,12 +95,12 @@ class CreateGroupRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=1000)
     mode: str = Field(default="chapter_wise", pattern="^(chapter_wise|saptah)$")
-    chapters_per_week: int = Field(default=2, ge=1, le=5)
+    chapters_per_week: int = Field(default=2, ge=1, le=53)
 
 
 class UpdateGroupRequest(BaseModel):
     """Request body for updating group settings."""
-    chapters_per_week: Optional[int] = Field(None, ge=1, le=5)
+    chapters_per_week: Optional[int] = Field(None, ge=1, le=53)
     current_week: Optional[int] = Field(None, ge=1)
 
 

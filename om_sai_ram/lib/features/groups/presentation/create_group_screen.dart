@@ -30,11 +30,13 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   final _descriptionController = TextEditingController();
   ReadingMode _selectedMode = ReadingMode.chapterWise;
   int _chaptersPerWeek = 2;
+  final _chaptersController = TextEditingController(text: '2');
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _chaptersController.dispose();
     super.dispose();
   }
 
@@ -158,41 +160,82 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                   style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 4),
               Text(
-                'How many chapters should be read each week?',
+                'How many chapters each member reads per week (1–53)',
                 style: TextStyle(color: AppColors.lightText, fontSize: 13),
               ),
               const SizedBox(height: 12),
               Row(
-                children: [2, 3].map((n) {
-                  final selected = _chaptersPerWeek == n;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: InkWell(
-                      onTap: () => setState(() => _chaptersPerWeek = n),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? AppColors.saffron.withOpacity(0.08)
-                              : AppColors.white,
+                children: [
+                  // Decrement button
+                  _StepperButton(
+                    icon: Icons.remove,
+                    onTap: _chaptersPerWeek > 1
+                        ? () => setState(() {
+                              _chaptersPerWeek--;
+                              _chaptersController.text = '$_chaptersPerWeek';
+                            })
+                        : null,
+                  ),
+                  const SizedBox(width: 8),
+                  // Editable number field
+                  SizedBox(
+                    width: 72,
+                    child: TextFormField(
+                      controller: _chaptersController,
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 8),
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: selected ? AppColors.saffron : AppColors.lightGrey,
-                            width: selected ? 1.5 : 1,
-                          ),
+                          borderSide: BorderSide(color: AppColors.saffron),
                         ),
-                        child: Text(
-                          '$n chapters',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: selected ? AppColors.saffron : AppColors.darkText,
-                          ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              BorderSide(color: AppColors.saffron, width: 2),
                         ),
                       ),
+                      onChanged: (v) {
+                        final n = int.tryParse(v);
+                        if (n != null && n >= 1 && n <= 53) {
+                          setState(() => _chaptersPerWeek = n);
+                        }
+                      },
+                      validator: (v) {
+                        final n = int.tryParse(v ?? '');
+                        if (n == null || n < 1 || n > 53) {
+                          return '1–53';
+                        }
+                        return null;
+                      },
                     ),
-                  );
-                }).toList(),
+                  ),
+                  const SizedBox(width: 8),
+                  // Increment button
+                  _StepperButton(
+                    icon: Icons.add,
+                    onTap: _chaptersPerWeek < 53
+                        ? () => setState(() {
+                              _chaptersPerWeek++;
+                              _chaptersController.text = '$_chaptersPerWeek';
+                            })
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'chapter${_chaptersPerWeek == 1 ? '' : 's'}/week',
+                    style: TextStyle(
+                      color: AppColors.lightText,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 40),
@@ -213,6 +256,41 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// +/- stepper button used in the chapters-per-week input.
+class _StepperButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  const _StepperButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: enabled ? AppColors.saffron : AppColors.lightGrey,
+          ),
+          color: enabled
+              ? AppColors.saffron.withOpacity(0.08)
+              : AppColors.lightGrey.withOpacity(0.3),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: enabled ? AppColors.saffron : AppColors.lightText,
         ),
       ),
     );

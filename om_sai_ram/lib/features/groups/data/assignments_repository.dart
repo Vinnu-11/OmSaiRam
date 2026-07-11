@@ -52,7 +52,15 @@ class AssignmentsRepository {
     return Assignment.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<List<Assignment>> autoSchedule({
+  /// Auto-schedules chapters in sequential round-robin across all members.
+  ///
+  /// Returns a record of:
+  /// - [assignments] — all created assignments
+  /// - [remainderChapters] — chapters that couldn't be evenly distributed
+  ///   (chapters_per_week % member_count != 0); group lead should decide
+  ///   what to do with these.
+  Future<({List<Assignment> assignments, List<Map<String, dynamic>> remainderChapters})>
+      autoSchedule({
     required String groupId,
     required int startChapter,
     int weeksAhead = 4,
@@ -65,8 +73,13 @@ class AssignmentsRepository {
         'weeks_ahead': weeksAhead,
       },
     );
-    final List<dynamic> data = response.data as List;
-    return data.map((j) => Assignment.fromJson(j as Map<String, dynamic>)).toList();
+    final body = response.data as Map<String, dynamic>;
+    final assignments = (body['assignments'] as List)
+        .map((j) => Assignment.fromJson(j as Map<String, dynamic>))
+        .toList();
+    final remainder = (body['remainder_chapters'] as List? ?? [])
+        .cast<Map<String, dynamic>>();
+    return (assignments: assignments, remainderChapters: remainder);
   }
 
   Future<int> advanceWeek(String groupId) async {

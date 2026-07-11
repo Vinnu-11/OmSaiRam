@@ -114,9 +114,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: ':chapterId',
-                builder: (context, state) => ChapterReaderScreen(
-                  chapterId: int.parse(state.pathParameters['chapterId']!),
-                ),
+                builder: (context, state) {
+                  final extra = state.extra as Map<String, dynamic>?;
+                  return ChapterReaderScreen(
+                    chapterId: int.parse(state.pathParameters['chapterId']!),
+                    assignmentId: extra?['assignmentId'] as String?,
+                    groupId: extra?['groupId'] as String?,
+                    chapterTitle: extra?['chapterTitle'] as String?,
+                  );
+                },
               ),
             ],
           ),

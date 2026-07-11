@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/reader_provider.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../groups/data/assignments_repository.dart';
 import '../../groups/data/group_chat_repository.dart';
 import '../../groups/providers/groups_provider.dart';
 
@@ -19,8 +21,18 @@ import '../../groups/providers/groups_provider.dart';
 /// - Chapter title at top with prev/next navigation
 class ChapterReaderScreen extends ConsumerStatefulWidget {
   final int chapterId;
+  // Optional — set when opened from a group assignment card
+  final String? assignmentId;
+  final String? groupId;
+  final String? chapterTitle;
 
-  const ChapterReaderScreen({super.key, required this.chapterId});
+  const ChapterReaderScreen({
+    super.key,
+    required this.chapterId,
+    this.assignmentId,
+    this.groupId,
+    this.chapterTitle,
+  });
 
   @override
   ConsumerState<ChapterReaderScreen> createState() =>
@@ -30,6 +42,7 @@ class ChapterReaderScreen extends ConsumerStatefulWidget {
 class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
   final ScrollController _scrollController = ScrollController();
   double _scrollProgress = 0.0;
+  bool _completionPromptShown = false;
 
   @override
   void initState() {
@@ -45,13 +58,73 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.hasClients &&
-        _scrollController.position.maxScrollExtent > 0) {
-      setState(() {
-        _scrollProgress = _scrollController.offset /
-            _scrollController.position.maxScrollExtent;
+    if (!_scrollController.hasClients) return;
+    final max = _scrollController.position.maxScrollExtent;
+    if (max <= 0) return;
+    final progress = _scrollController.offset / max;
+    setState(() => _scrollProgress = progress);
+
+    // Show completion prompt once when user reaches ≥95% of the chapter
+    if (progress >= 0.95 &&
+        !_completionPromptShown &&
+        widget.assignmentId != null) {
+      _completionPromptShown = true;
+      // Small delay so the user sees they're near the end
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) _showCompletionSheet();
       });
     }
+  }
+
+  Future<void> _markCompleted(String assignmentId, String groupId) async {
+    final repo = ref.read(assignmentsRepositoryProvider);
+    await repo.updateProgress(assignmentId, 'completed');
+
+    // Post a chat message to the group
+    final authUser = ref.read(authStateProvider).user;
+    final userName = authUser?.name ?? 'A devotee';
+    final title = widget.chapterTitle ?? 'Chapter ${widget.chapterId}';
+    await ref.read(groupChatRepositoryProvider).sendMessage(
+      groupId,
+      '✅ $userName completed $title 🙏',
+    );
+  }
+
+  void _showCompletionSheet() {
+    showModalBottomSheet(
+      context: context,
+      isDismissible: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _CompletionSheet(
+        chapterTitle: widget.chapterTitle ?? 'Chapter ${widget.chapterId}',
+        onCompleted: () async {
+          Navigator.pop(ctx);
+          try {
+            await _markCompleted(widget.assignmentId!, widget.groupId!);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Marked as completed! Message posted to group 🙏'),
+                  backgroundColor: Colors.green.shade600,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  margin: const EdgeInsets.all(16),
+                ),
+              );
+            }
+          } catch (_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Could not mark as completed. Try again later.')),
+              );
+            }
+          }
+        },
+        onLater: () => Navigator.pop(ctx),
+      ),
+    );
   }
 
   @override
@@ -717,6 +790,108 @@ class _ShareHighlightSheetState extends ConsumerState<_ShareHighlightSheet> {
         );
       }
     }
+  }
+}
+
+/// Bottom sheet shown when user reaches the end of an assigned chapter.
+/// Prompts them to mark it as completed and notifies the group.
+class _CompletionSheet extends StatelessWidget {
+  final String chapterTitle;
+  final VoidCallback onCompleted;
+  final VoidCallback onLater;
+
+  const _CompletionSheet({
+    required this.chapterTitle,
+    required this.onCompleted,
+    required this.onLater,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 36),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.lightGrey,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.menu_book_rounded, size: 36, color: Colors.green.shade600),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Chapter Complete! 🙏',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Have you finished reading\n"$chapterTitle"?',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.mediumText,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Marking it complete will notify your group.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.lightText,
+            ),
+          ),
+          const SizedBox(height: 28),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onLater,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: AppColors.lightGrey),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text('Later',
+                      style: TextStyle(color: AppColors.mediumText, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: onCompleted,
+                  icon: const Icon(Icons.check_circle_outline, size: 18),
+                  label: const Text('Mark as Completed',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green.shade600,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 

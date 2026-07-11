@@ -87,6 +87,7 @@ def create_group(
         mode=request.mode,
         invite_code=invite_code,
         created_by=current_user.id,
+        chapters_per_week=request.chapters_per_week,
     )
     db.add(group)
     db.flush()  # Get the group ID before adding member

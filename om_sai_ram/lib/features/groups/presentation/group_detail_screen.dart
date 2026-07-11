@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../data/group_model.dart';
@@ -23,18 +24,24 @@ class GroupDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
   Group? _group;
   List<GroupMember> _members = [];
   bool _isLoading = true;
-  // Role of the currently signed-in user in this group
   String _myRole = 'member';
+
+  // Group lead = admin OR group_lead — they have identical permissions.
+  bool get _isLead => _myRole == 'admin' || _myRole == 'group_lead';
+  // Aliases kept for compatibility with child widgets
+  bool get _canAssign => _isLead;
+  bool get _isAdmin => _isLead;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    // Start with 2 tabs; will be rebuilt to 3 after role is known if user is lead
+    _tabController = TabController(length: 2, vsync: this);
     _loadGroupDetail();
   }
 
@@ -58,19 +65,30 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
           joinedAt: DateTime.now(),
         ),
       );
+      final role = myMembership.role;
+      final isLead = role == 'admin' || role == 'group_lead';
+      final tabCount = isLead ? 3 : 2;
+
+      if (!mounted) return;
+
+      // Recreate controller only if tab count changed
+      if (_tabController.length != tabCount) {
+        final old = _tabController;
+        _tabController = TabController(length: tabCount, vsync: this);
+        old.dispose();
+      }
+
       setState(() {
         _group = result['group'] as Group;
         _members = members;
-        _myRole = myMembership.role;
+        _myRole = role;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('GroupDetail._loadGroupDetail error: $e\n$st');
       setState(() => _isLoading = false);
     }
   }
-
-  bool get _canAssign => _myRole == 'admin' || _myRole == 'group_lead';
-  bool get _isAdmin => _myRole == 'admin';
 
   @override
   Widget build(BuildContext context) {
@@ -113,22 +131,24 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
           labelColor: AppColors.saffron,
           unselectedLabelColor: AppColors.lightText,
           indicatorColor: AppColors.saffron,
-          tabs: const [
-            Tab(icon: Icon(Icons.people_outline, size: 20), text: AppStrings.members),
-            Tab(icon: Icon(Icons.calendar_today_outlined, size: 20), text: AppStrings.schedule),
-            Tab(icon: Icon(Icons.chat_bubble_outline, size: 20), text: AppStrings.groupChat),
+          tabs: [
+            if (_isLead)
+              const Tab(icon: Icon(Icons.people_outline, size: 20), text: AppStrings.members),
+            const Tab(icon: Icon(Icons.calendar_today_outlined, size: 20), text: AppStrings.schedule),
+            const Tab(icon: Icon(Icons.chat_bubble_outline, size: 20), text: AppStrings.groupChat),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _MembersTab(
-            members: _members,
-            isAdmin: _isAdmin,
-            groupId: widget.groupId,
-            onRoleChanged: _loadGroupDetail,
-          ),
+          if (_isLead)
+            _MembersTab(
+              members: _members,
+              isAdmin: _isAdmin,
+              groupId: widget.groupId,
+              onRoleChanged: _loadGroupDetail,
+            ),
           _ScheduleTab(
             groupId: widget.groupId,
             group: _group!,
@@ -463,7 +483,7 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
   }
 
   Future<void> _autoSchedule() async {
-    // Find the next unscheduled chapter
+    // Find the next unscheduled chapter (sequential — continue from where we left off)
     final allAssignments = await ref
         .read(assignmentsRepositoryProvider)
         .getGroupAssignments(widget.groupId);
@@ -472,16 +492,29 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
     while (assignedChapters.contains(startChapter)) startChapter++;
 
     try {
-      await ref.read(assignmentsRepositoryProvider).autoSchedule(
+      final result = await ref.read(assignmentsRepositoryProvider).autoSchedule(
         groupId: widget.groupId,
         startChapter: startChapter,
         weeksAhead: 4,
       );
-      if (mounted) {
+
+      if (!mounted) return;
+      _loadAssignments();
+
+      // If there are remainder chapters, show a dialog asking what to do
+      if (result.remainderChapters.isNotEmpty) {
+        _showRemainderDialog(result.remainderChapters);
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('4 weeks scheduled! ✓')),
+          SnackBar(
+            content: Text(
+              '${result.assignments.length} assignments scheduled across 4 weeks ✓'
+                  ' (chapters $startChapter–${startChapter + result.assignments.length - 1})',
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
-        _loadAssignments();
       }
     } catch (e) {
       if (mounted) {
@@ -490,6 +523,71 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
         );
       }
     }
+  }
+
+  /// Shows a dialog informing the group lead about remainder chapters
+  /// that couldn't be evenly distributed across members.
+  void _showRemainderDialog(List<Map<String, dynamic>> remainders) {
+    // Group by week for clarity
+    final byWeek = <int, List<Map<String, dynamic>>>{};
+    for (final r in remainders) {
+      final w = r['week_number'] as int;
+      byWeek.putIfAbsent(w, () => []).add(r);
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.orange.shade700),
+            const SizedBox(width: 8),
+            const Text('Remainder Chapters'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'These chapters couldn\'t be evenly distributed because '
+                'chapters-per-week isn\'t divisible by the number of members. '
+                'You can assign them manually.',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              ...byWeek.entries.map((entry) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Week ${entry.key}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  ...entry.value.map((r) => Padding(
+                    padding: const EdgeInsets.only(left: 12, bottom: 4),
+                    child: Text(
+                      '• Ch.${r['chapter_number']} — ${r['chapter_title']}',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  )),
+                  const SizedBox(height: 8),
+                ],
+              )),
+            ],
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange.shade700),
+            child: const Text('Got it — I\'ll assign manually'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _advanceWeek() async {
@@ -722,13 +820,27 @@ class _AssignmentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.lightGrey),
       ),
-      child: Column(
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => context.go(
+            '/reader/${assignment.chapterId}',
+            extra: {
+              'assignmentId': assignment.id,
+              'groupId': assignment.groupId,
+              'chapterTitle': assignment.chapterTitle ?? 'Chapter ${assignment.chapterNumber}',
+            },
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -814,6 +926,9 @@ class _AssignmentCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+          ),
+        ),
       ),
     );
   }
