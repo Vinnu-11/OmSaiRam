@@ -49,6 +49,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: const Text(AppStrings.appName),
         actions: [
           IconButton(
+            icon: const Icon(Icons.schedule_rounded),
+            tooltip: 'Daily Programme',
+            onPressed: () => context.go(AppRoutes.dailyProgramme),
+          ),
+          IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: AppStrings.faq,
             onPressed: () => context.go(AppRoutes.faq),
@@ -100,6 +105,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                   ),
                 ],
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // Daily Programme banner
+            GestureDetector(
+              onTap: () => context.go(AppRoutes.dailyProgramme),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.saffron.withOpacity(0.25)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.saffron.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.schedule_rounded,
+                          color: AppColors.saffron, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Daily Programme',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: AppColors.darkText,
+                            ),
+                          ),
+                          Text(
+                            'Shirdi temple schedule — aartis & timings',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.lightText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios,
+                        size: 14, color: AppColors.saffron),
+                  ],
+                ),
               ),
             ),
 
