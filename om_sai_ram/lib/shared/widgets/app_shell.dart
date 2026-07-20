@@ -36,14 +36,19 @@ class AppShell extends StatelessWidget {
               label: AppStrings.home,
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.group_outlined),
-              activeIcon: Icon(Icons.group),
-              label: AppStrings.groups,
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.auto_stories_outlined),
               activeIcon: Icon(Icons.auto_stories),
               label: AppStrings.reader,
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.headphones_outlined),
+              activeIcon: Icon(Icons.headphones),
+              label: 'Audio',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.live_tv_outlined),
+              activeIcon: Icon(Icons.live_tv),
+              label: 'Live',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outlined),
@@ -59,9 +64,10 @@ class AppShell extends StatelessWidget {
   /// Determines the active tab index based on the current route.
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
-    if (location.startsWith(AppRoutes.groups)) return 1;
-    if (location.startsWith(AppRoutes.reader)) return 2;
-    if (location.startsWith(AppRoutes.profile)) return 3;
+    if (location.startsWith(AppRoutes.reader)) return 1;
+    if (location.startsWith(AppRoutes.audio)) return 2;
+    if (location == AppRoutes.liveDarshan) return 3;
+    if (location.startsWith(AppRoutes.profile)) return 4;
     return 0; // Home
   }
 
@@ -72,12 +78,15 @@ class AppShell extends StatelessWidget {
         context.go(AppRoutes.home);
         break;
       case 1:
-        context.go(AppRoutes.groups);
-        break;
-      case 2:
         context.go(AppRoutes.reader);
         break;
+      case 2:
+        context.go(AppRoutes.audio);
+        break;
       case 3:
+        context.go(AppRoutes.liveDarshan);
+        break;
+      case 4:
         context.go(AppRoutes.profile);
         break;
     }

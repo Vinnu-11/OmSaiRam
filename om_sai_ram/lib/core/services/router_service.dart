@@ -14,6 +14,10 @@ import '../../features/reader/presentation/chapters_screen.dart';
 import '../../features/reader/presentation/chapter_reader_screen.dart';
 import '../../features/faq/presentation/faq_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/audio/presentation/audio_hub_screen.dart';
+import '../../features/audio/presentation/aarti_screen.dart';
+import '../../features/audio/presentation/satcharitra_audio_screen.dart';
+import '../../features/audio/presentation/live_darshan_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../shared/widgets/app_shell.dart';
 
@@ -32,6 +36,10 @@ class AppRoutes {
   static const String chapterReader = '/reader/:chapterId';
   static const String faq = '/faq';
   static const String profile = '/profile';
+  static const String audio = '/audio';
+  static const String aarti = '/audio/aarti';
+  static const String satcharitaAudio = '/audio/satcharitra';
+  static const String liveDarshan = '/live';
 
   /// Routes that require authentication.
   static const _authRequired = ['/groups', '/profile'];
@@ -133,6 +141,24 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.profile,
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.audio,
+            builder: (context, state) => const AudioHubScreen(),
+            routes: [
+              GoRoute(
+                path: 'aarti',
+                builder: (context, state) => const AartiScreen(),
+              ),
+              GoRoute(
+                path: 'satcharitra',
+                builder: (context, state) => const SatcharitaAudioScreen(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: AppRoutes.liveDarshan,
+            builder: (context, state) => const LiveDarshanScreen(),
           ),
         ],
       ),
