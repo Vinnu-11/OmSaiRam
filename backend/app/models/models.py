@@ -163,6 +163,21 @@ class PhoneOtp(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class Festival(Base):
+    """An upcoming festival/event scraped from sai.org.in/en/festivals."""
+
+    __tablename__ = "festivals"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    title = Column(String(255), nullable=False)
+    date_label = Column(String(100), nullable=False)   # e.g. "Tuesday, July 28, 2026"
+    event_date = Column(DateTime, nullable=True)        # parsed date for sorting
+    description = Column(Text, nullable=True)
+    source_url = Column(String(500), default="https://sai.org.in/en/festivals")
+    scraped_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class ChapterHighlightComment(Base):
     """A comment tied to a highlighted paragraph/verse in a chapter, shared with the group."""
 

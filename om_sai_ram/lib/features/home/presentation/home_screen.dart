@@ -162,6 +162,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
+            const SizedBox(height: 10),
+
+            // Upcoming Events banner
+            GestureDetector(
+              onTap: () => context.go(AppRoutes.events),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.deepOrange.withOpacity(0.25)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.deepOrange.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.celebration_rounded,
+                          color: AppColors.deepOrange, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Upcoming Events',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: AppColors.darkText,
+                            ),
+                          ),
+                          Text(
+                            'Shirdi festivals & celebrations',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.lightText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward_ios,
+                        size: 14, color: AppColors.deepOrange),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(height: 20),
 
             // Streak + progress row

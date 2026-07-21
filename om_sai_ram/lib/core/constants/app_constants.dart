@@ -28,6 +28,9 @@ class AppConstants {
   static const String contentVersionsEndpoint = '/content/versions';
   static const String chaptersEndpoint = '/content/chapters';
 
+  // Festivals endpoint
+  static const String festivalsEndpoint = '/festivals';
+
   // Assignment endpoints
   static const String assignmentsEndpoint = '/assignments';
 

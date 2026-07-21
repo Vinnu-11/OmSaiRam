@@ -19,6 +19,7 @@ import '../../features/audio/presentation/aarti_screen.dart';
 import '../../features/audio/presentation/satcharitra_audio_screen.dart';
 import '../../features/audio/presentation/live_darshan_screen.dart';
 import '../../features/info/presentation/daily_programme_screen.dart';
+import '../../features/events/presentation/events_screen.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../shared/widgets/app_shell.dart';
 
@@ -42,6 +43,7 @@ class AppRoutes {
   static const String satcharitaAudio = '/audio/satcharitra';
   static const String liveDarshan = '/live';
   static const String dailyProgramme = '/daily-programme';
+  static const String events = '/events';
 
   /// Routes that require authentication.
   static const _authRequired = ['/groups', '/profile'];
@@ -165,6 +167,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.dailyProgramme,
             builder: (context, state) => const DailyProgrammeScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.events,
+            builder: (context, state) => const EventsScreen(),
           ),
         ],
       ),
