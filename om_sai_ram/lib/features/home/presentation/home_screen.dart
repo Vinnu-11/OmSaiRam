@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/sai_quotes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/router_service.dart';
 import '../../../core/providers/reading_progress_provider.dart';
@@ -501,63 +502,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 32),
             ], // end else (logged-in groups section)
 
-            // Inspirational quote
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.saffron.withOpacity(0.06),
-                    AppColors.deepOrange.withOpacity(0.03),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppColors.saffron.withOpacity(0.15),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.saffron.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.format_quote_rounded,
-                      color: AppColors.saffron,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '"Before we begin any task, we must first remember Sai Baba and seek His blessings."',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontStyle: FontStyle.italic,
-                          height: 1.6,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '— Sai Satcharita',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.lightText,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // Daily quote
+            _DailyQuoteCard(),
 
             const SizedBox(height: 16),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Rotates through kSaiQuotes — one per calendar day.
+class _DailyQuoteCard extends StatelessWidget {
+  const _DailyQuoteCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final quote = todaysSaiQuote;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.saffron.withOpacity(0.06),
+            AppColors.deepOrange.withOpacity(0.03),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.saffron.withOpacity(0.15)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.saffron.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.format_quote_rounded,
+                color: AppColors.saffron, size: 24),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            '“${quote.text}”',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  height: 1.6,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '— ${quote.source}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.lightText,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -128,7 +128,7 @@ class _ChapterTile extends StatelessWidget {
   const _ChapterTile({required this.index, required this.track});
 
   Future<void> _download(BuildContext context) async {
-    final uri = Uri.parse(track.url);
+    final uri = Uri.parse(track.downloadUrl);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {

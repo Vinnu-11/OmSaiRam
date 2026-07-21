@@ -116,6 +116,57 @@ const List<AartiGroup> kAartis = [
 ];
 
 // ---------------------------------------------------------------------------
+// Language-code → SatcharitaLanguage lookup map
+// ---------------------------------------------------------------------------
+
+/// Maps reader language codes to their audio language entry (if any).
+const Map<String, String> _langCodeToName = {
+  'mr': 'Marathi',
+  'hi': 'Hindi',
+  'te': 'Telugu',
+  'ta': 'Tamil',
+};
+
+/// Returns the [AudioTrack] for a given reader language code and 1-based
+/// chapter number, or null if no audio exists for that combination.
+AudioTrack? audioTrackForChapter(String langCode, int chapterNumber) {
+  final name = _langCodeToName[langCode];
+  if (name == null) return null;
+  final lang = kSatcharitaAudio.firstWhere(
+    (l) => l.name == name,
+    orElse: () => const SatcharitaLanguage(name: '', displayName: '', chapters: []),
+  );
+  if (lang.chapters.isEmpty) return null;
+
+  // File names are like `te_ch01.mp3`, `hi_ch16_17.mp3`, `te_upodghatam.mp3`.
+  // We scan all tracks and pick the first whose fileName covers chapterNumber.
+  for (final track in lang.chapters) {
+    if (_trackCoversChapter(track.fileName, chapterNumber)) return track;
+  }
+  return null;
+}
+
+/// Returns true if [fileName] covers [chapterNumber].
+/// Handles: `te_ch01.mp3` (single), `hi_ch16_17.mp3` (range).
+bool _trackCoversChapter(String fileName, int chapterNumber) {
+  // Strip prefix/extension: "te_ch16_17.mp3" → "ch16_17"
+  final bare = fileName.replaceAll(RegExp(r'^[a-z]+_'), '').replaceAll('.mp3', '');
+  if (!bare.startsWith('ch')) return false;
+  final nums = bare.substring(2).split('_');
+  if (nums.length == 1) {
+    final n = int.tryParse(nums[0]);
+    return n == chapterNumber;
+  }
+  if (nums.length == 2) {
+    final start = int.tryParse(nums[0]);
+    final end = int.tryParse(nums[1]);
+    if (start == null || end == null) return false;
+    return chapterNumber >= start && chapterNumber <= end;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Satcharitra audio — full chapter sets per language
 // ---------------------------------------------------------------------------
 

@@ -7,8 +7,11 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/reader_settings_provider.dart';
 import '../../../core/providers/reading_progress_provider.dart';
+import '../../../core/providers/language_provider.dart';
 import '../providers/reader_provider.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../audio/data/audio_data.dart';
+import '../../audio/providers/chapter_audio_provider.dart';
 import '../../groups/data/assignments_repository.dart';
 import '../../groups/data/group_chat_repository.dart';
 import '../../groups/providers/groups_provider.dart';
@@ -163,12 +166,20 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
     final settings = ref.watch(readerSettingsProvider);
     final isBookmarked = progress.bookmarks.contains(widget.chapterId);
 
+    // Look up whether audio exists for the current language + chapter.
+    final langCode = ref.watch(languageProvider).readerLanguage.code;
+    final audioTrack = audioTrackForChapter(langCode, widget.chapterId);
+    final audioState = ref.watch(chapterAudioProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: chapterAsync.whenData((ch) => ch).valueOrNull != null
             ? Text('${AppStrings.chapter} ${chapterAsync.value!.chapterLabel ?? chapterAsync.value!.number}')
             : Text('${AppStrings.chapter} ${widget.chapterId}'),
         actions: [
+          // Audio icon — only shown when audio exists for this chapter+language
+          if (audioTrack != null)
+            _AudioAppBarButton(track: audioTrack, audioState: audioState),
           // Font size decrease
           IconButton(
             icon: const Icon(Icons.text_decrease, size: 20),
@@ -209,6 +220,10 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
           ),
         ),
       ),
+      // Mini audio player bar docked at the bottom when audio is active.
+      bottomNavigationBar: (audioTrack != null && audioState.isActive)
+          ? _MiniAudioPlayer(track: audioTrack, audioState: audioState)
+          : null,
       body: chapterAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.saffron),
@@ -973,6 +988,195 @@ class _CompletionSheet extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Audio icon button in AppBar
+// ---------------------------------------------------------------------------
+
+class _AudioAppBarButton extends ConsumerWidget {
+  final AudioTrack track;
+  final ChapterAudioState audioState;
+
+  const _AudioAppBarButton({required this.track, required this.audioState});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isThisTrack = audioState.track?.fileName == track.fileName;
+    final isDownloading =
+        isThisTrack && audioState.status == ChapterAudioStatus.downloading;
+    final isPlaying =
+        isThisTrack && audioState.status == ChapterAudioStatus.playing;
+
+    return IconButton(
+      tooltip: isPlaying ? 'Pause audio' : 'Play audio',
+      onPressed: () => ref.read(chapterAudioProvider.notifier).toggleAudio(track),
+      icon: isDownloading
+          ? SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                value: audioState.downloadProgress,
+                strokeWidth: 2.5,
+                color: AppColors.saffron,
+              ),
+            )
+          : Icon(
+              isPlaying
+                  ? Icons.pause_circle_filled_rounded
+                  : Icons.headphones_rounded,
+              color: (isThisTrack && audioState.isActive)
+                  ? AppColors.saffron
+                  : null,
+            ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mini audio player docked at the bottom while audio is active
+// ---------------------------------------------------------------------------
+
+class _MiniAudioPlayer extends ConsumerWidget {
+  final AudioTrack track;
+  final ChapterAudioState audioState;
+
+  const _MiniAudioPlayer({required this.track, required this.audioState});
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(chapterAudioProvider.notifier);
+    final total = audioState.total;
+    final position = audioState.position;
+    final sliderMax = total.inMilliseconds > 0 ? total.inMilliseconds.toDouble() : 1.0;
+    final sliderVal =
+        position.inMilliseconds.clamp(0, total.inMilliseconds).toDouble();
+
+    final isDownloading = audioState.status == ChapterAudioStatus.downloading;
+    final isPlaying = audioState.status == ChapterAudioStatus.playing;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppColors.lightGrey)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Track title row
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.saffron.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.headphones_rounded,
+                    color: AppColors.saffron, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      track.title,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.darkText),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (isDownloading && audioState.downloadProgress != null)
+                      Text(
+                        'Downloading… ${(audioState.downloadProgress! * 100).toStringAsFixed(0)}%',
+                        style: TextStyle(
+                            fontSize: 11, color: AppColors.mediumText),
+                      )
+                    else
+                      Text(
+                        '${_fmt(position)}  /  ${_fmt(total)}',
+                        style: TextStyle(
+                            fontSize: 11, color: AppColors.mediumText),
+                      ),
+                  ],
+                ),
+              ),
+              // Play / Pause button
+              if (isDownloading)
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
+                    value: audioState.downloadProgress,
+                    strokeWidth: 2.5,
+                    color: AppColors.saffron,
+                  ),
+                )
+              else
+                IconButton(
+                  icon: Icon(
+                    isPlaying
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_circle_filled_rounded,
+                    color: AppColors.saffron,
+                    size: 36,
+                  ),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => notifier.toggleAudio(track),
+                ),
+              // Stop / close button
+              IconButton(
+                icon: Icon(Icons.close_rounded,
+                    size: 20, color: AppColors.mediumText),
+                padding: EdgeInsets.zero,
+                onPressed: () => notifier.stop(),
+              ),
+            ],
+          ),
+          // Seek slider (only when we have duration)
+          if (!isDownloading && total.inSeconds > 0)
+            SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 3,
+                thumbShape:
+                    const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape:
+                    const RoundSliderOverlayShape(overlayRadius: 12),
+                activeTrackColor: AppColors.saffron,
+                inactiveTrackColor: AppColors.lightGrey,
+                thumbColor: AppColors.saffron,
+                overlayColor: AppColors.saffron.withOpacity(0.15),
+              ),
+              child: Slider(
+                value: sliderVal,
+                min: 0,
+                max: sliderMax,
+                onChanged: (v) =>
+                    notifier.seek(Duration(milliseconds: v.round())),
+              ),
+            ),
         ],
       ),
     );

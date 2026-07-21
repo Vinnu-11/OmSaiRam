@@ -38,6 +38,8 @@ dependencies:
 
   # Audio / download
   url_launcher: ^6.2.0
+  just_audio: ^0.9.36
+  path_provider: ^2.1.2
 
   # WebView for live darshan stream
   webview_flutter: ^4.4.0
