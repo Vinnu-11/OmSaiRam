@@ -4,10 +4,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/services/router_service.dart';
+import '../../../core/providers/language_provider.dart';
+import '../../../core/l10n/s.dart';
 import '../data/group_model.dart';
 import '../providers/groups_provider.dart';
 
@@ -60,6 +61,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final groupsState = ref.watch(groupsProvider);
 
     // Show error snackbar when group creation fails
@@ -86,7 +88,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.createGroup),
+        title: Text(tr.createGroup),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -101,9 +103,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                 textCapitalization: TextCapitalization.words,
                 validator: Validators.groupName,
                 maxLength: 80,
-                decoration: const InputDecoration(
-                  hintText: AppStrings.groupName,
-                  prefixIcon: Icon(Icons.group_outlined),
+                decoration: InputDecoration(
+                  hintText: tr.groupName,
+                  prefixIcon: const Icon(Icons.group_outlined),
                 ),
               ),
               const SizedBox(height: 16),
@@ -113,9 +115,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                 controller: _descriptionController,
                 maxLines: 3,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: AppStrings.groupDescription,
-                  prefixIcon: Icon(Icons.description_outlined),
+                decoration: InputDecoration(
+                  hintText: tr.groupDescription,
+                  prefixIcon: const Icon(Icons.description_outlined),
                   alignLabelWithHint: true,
                 ),
               ),
@@ -130,7 +132,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
               // Chapter-wise option
               _ModeOption(
-                title: AppStrings.chapterWise,
+                title: tr.chapterWise,
                 description:
                     'Assign individual chapters (1-53) to each member.',
                 icon: Icons.menu_book_outlined,
@@ -143,7 +145,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
               // Saptah option
               _ModeOption(
-                title: AppStrings.weeklySaptah,
+                title: tr.weeklySaptah,
                 description:
                     'Complete all chapters in 7 days with automatic daily assignments.',
                 icon: Icons.calendar_today_outlined,
@@ -252,7 +254,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text(AppStrings.createGroup),
+                    : Text(tr.createGroup),
               ),
             ],
           ),

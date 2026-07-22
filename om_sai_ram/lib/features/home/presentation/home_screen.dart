@@ -4,13 +4,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/sai_quotes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/router_service.dart';
 import '../../../core/providers/reading_progress_provider.dart';
+import '../../../core/l10n/s.dart';
+import '../../../core/providers/language_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../groups/providers/groups_provider.dart';
+import '../../../shared/widgets/app_shell.dart';
 
 /// Home/Overview screen — the main dashboard after login.
 ///
@@ -39,6 +41,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final authState = ref.watch(authStateProvider);
     final groupsState = ref.watch(groupsProvider);
     final readingProgress = ref.watch(readingProgressProvider);
@@ -47,16 +50,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.appName),
+        title: Text(tr.appName),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => AppShell.scaffoldKey.currentState?.openDrawer(),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.schedule_rounded),
-            tooltip: 'Daily Programme',
+            tooltip: tr.dailyProgramme,
             onPressed: () => context.go(AppRoutes.dailyProgramme),
           ),
           IconButton(
             icon: const Icon(Icons.help_outline),
-            tooltip: AppStrings.faq,
+            tooltip: tr.faq,
             onPressed: () => context.go(AppRoutes.faq),
           ),
         ],
@@ -100,7 +107,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    AppStrings.appTagline,
+                    tr.appTagline,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.lightText,
                         ),
@@ -138,16 +145,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Daily Programme',
-                            style: TextStyle(
+                          Text(
+                            tr.dailyProgramme,
+                            style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
                               color: AppColors.darkText,
                             ),
                           ),
                           Text(
-                            'Shirdi temple schedule — aartis & timings',
+                            tr.dailyProgrammeSubtitle,
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.lightText,
@@ -192,16 +199,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Upcoming Events',
-                            style: TextStyle(
+                          Text(
+                            tr.upcomingEvents,
+                            style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
                               color: AppColors.darkText,
                             ),
                           ),
                           Text(
-                            'Shirdi festivals & celebrations',
+                            tr.upcomingEventsSubtitle,
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.lightText,
@@ -222,13 +229,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // Streak + progress row
             Row(
               children: [
-                // Streak card
+                // Week streak card — glows differently when 2+ reads this week
                 Expanded(
                   child: _StatCard(
-                    icon: Icons.local_fire_department_rounded,
-                    iconColor: AppColors.deepOrange,
+                    icon: readingProgress.readingsThisWeek >= 2
+                        ? Icons.auto_awesome_rounded
+                        : Icons.local_fire_department_rounded,
+                    iconColor: readingProgress.readingsThisWeek >= 2
+                        ? Colors.amber
+                        : AppColors.deepOrange,
                     value: '${readingProgress.currentStreak}',
-                    label: 'Day Streak',
+                    label: tr.weekStreak,
+                    highlight: readingProgress.readingsThisWeek >= 2,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -238,7 +250,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     icon: Icons.menu_book_rounded,
                     iconColor: AppColors.saffron,
                     value: '${readingProgress.completedChapters.length}',
-                    label: 'Chapters Read',
+                    label: tr.chaptersRead,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -248,7 +260,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     icon: Icons.bookmark_rounded,
                     iconColor: Colors.indigo,
                     value: '${readingProgress.bookmarks.length}',
-                    label: 'Bookmarks',
+                    label: tr.bookmarks,
                   ),
                 ),
               ],
@@ -283,8 +295,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Continue Reading',
-                              style: TextStyle(
+                              tr.continueReading,
+                              style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 14,
                                 color: AppColors.saffron,
@@ -308,7 +320,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
             // Quick action cards
             Text(
-              'Quick Actions',
+              tr.quickActions,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -319,7 +331,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Expanded(
                   child: _QuickActionCard(
                     icon: Icons.group_add_outlined,
-                    label: AppStrings.createGroup,
+                    label: tr.createGroup,
                     color: AppColors.saffron,
                     onTap: () {
                       if (isLoggedIn) {
@@ -334,7 +346,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Expanded(
                   child: _QuickActionCard(
                     icon: Icons.auto_stories_outlined,
-                    label: 'Read',
+                    label: tr.read,
                     color: AppColors.deepOrange,
                     onTap: () => context.go(AppRoutes.reader),
                   ),
@@ -375,7 +387,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.saffron,
                       ),
-                      child: const Text('Sign In'),
+                      child: Text(tr.signIn),
                     ),
                   ],
                 ),
@@ -388,14 +400,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'My Groups',
+                  tr.myGroups,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                 ),
                 TextButton.icon(
                   onPressed: () => context.go(AppRoutes.groups),
-                  icon: const Text('View All'),
+                  icon: Text(tr.viewAll),
                   label: const Icon(Icons.arrow_forward_ios, size: 14),
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.saffron,

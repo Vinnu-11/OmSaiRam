@@ -4,10 +4,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/services/router_service.dart';
 import '../../../core/utils/validators.dart';
+import '../../../core/providers/language_provider.dart';
+import '../../../shared/widgets/app_shell.dart';
+import '../../../core/l10n/s.dart';
 import '../data/group_model.dart';
 import '../providers/groups_provider.dart';
 
@@ -35,6 +36,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final groupsState = ref.watch(groupsProvider);
 
     // Show error snackbar on failures
@@ -61,13 +63,17 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.groups),
+        title: Text(tr.groups),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => AppShell.scaffoldKey.currentState?.openDrawer(),
+        ),
         actions: [
           // Join group button
           IconButton(
             icon: const Icon(Icons.group_add_outlined),
-            tooltip: AppStrings.joinGroup,
-            onPressed: () => _showJoinGroupDialog(context),
+            tooltip: tr.joinGroup,
+            onPressed: () => _showJoinGroupDialog(context, tr),
           ),
         ],
       ),
@@ -77,13 +83,13 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         backgroundColor: AppColors.saffron,
         foregroundColor: AppColors.white,
         icon: const Icon(Icons.add),
-        label: const Text(AppStrings.createGroup),
+        label: Text(tr.createGroup),
       ),
-      body: _buildBody(groupsState),
+      body: _buildBody(groupsState, tr),
     );
   }
 
-  Widget _buildBody(GroupsState state) {
+  Widget _buildBody(GroupsState state, AppTr tr) {
     if (state.isLoading && state.groups.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.saffron),
@@ -100,7 +106,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
         itemCount: state.groups.length,
-        itemBuilder: (context, index) => _GroupCard(group: state.groups[index]),
+        itemBuilder: (context, index) => _GroupCard(group: state.groups[index], tr: tr),
       ),
     );
   }
@@ -147,7 +153,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   }
 
   /// Shows dialog to enter an invite code to join a group.
-  void _showJoinGroupDialog(BuildContext context) {
+  void _showJoinGroupDialog(BuildContext context, AppTr tr) {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
@@ -166,7 +172,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
               child: Icon(Icons.group_add, color: AppColors.saffron, size: 20),
             ),
             const SizedBox(width: 10),
-            const Text(AppStrings.joinGroup),
+            Text(tr.joinGroup),
           ],
         ),
         content: Form(
@@ -187,7 +193,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(tr.cancel),
           ),
           FilledButton(
             onPressed: () async {
@@ -222,8 +228,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 /// Card widget displaying a single group's summary.
 class _GroupCard extends StatelessWidget {
   final Group group;
+  final AppTr tr;
 
-  const _GroupCard({required this.group});
+  const _GroupCard({required this.group, required this.tr});
 
   @override
   Widget build(BuildContext context) {
@@ -290,7 +297,7 @@ class _GroupCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
-                          _ModeBadge(mode: group.mode),
+                          _ModeBadge(mode: group.mode, tr: tr),
                         ],
                       ),
                     ),
@@ -338,8 +345,9 @@ class _GroupCard extends StatelessWidget {
 /// Badge showing the reading mode (Chapter-wise / Weekly Saptah).
 class _ModeBadge extends StatelessWidget {
   final ReadingMode mode;
+  final AppTr tr;
 
-  const _ModeBadge({required this.mode});
+  const _ModeBadge({required this.mode, required this.tr});
 
   @override
   Widget build(BuildContext context) {
@@ -352,7 +360,7 @@ class _ModeBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        isChapter ? AppStrings.chapterWise : AppStrings.weeklySaptah,
+        isChapter ? tr.chapterWise : tr.weeklySaptah,
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,

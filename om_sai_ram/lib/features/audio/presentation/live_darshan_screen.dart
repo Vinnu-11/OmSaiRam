@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_shell.dart';
 
 class LiveDarshanScreen extends StatefulWidget {
   const LiveDarshanScreen({super.key});
@@ -63,6 +64,10 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
           style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
         ),
         centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.white),
+          onPressed: () => AppShell.scaffoldKey.currentState?.openDrawer(),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),

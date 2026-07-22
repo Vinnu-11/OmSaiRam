@@ -3,11 +3,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/reader_settings_provider.dart';
 import '../../../core/providers/reading_progress_provider.dart';
 import '../../../core/providers/language_provider.dart';
+import '../../../core/l10n/s.dart';
 import '../providers/reader_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../audio/data/audio_data.dart';
@@ -122,6 +122,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
   }
 
   void _showCompletionSheet() {
+    final tr = S(ref.read(languageProvider).appLanguage.code);
     showModalBottomSheet(
       context: context,
       isDismissible: true,
@@ -130,6 +131,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
       ),
       builder: (ctx) => _CompletionSheet(
         chapterTitle: widget.chapterTitle ?? 'Chapter ${widget.chapterId}',
+        tr: tr,
         onCompleted: () async {
           Navigator.pop(ctx);
           try {
@@ -160,6 +162,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final chapterAsync = ref.watch(chapterProvider(widget.chapterId));
 
     final progress = ref.watch(readingProgressProvider);
@@ -174,8 +177,8 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
     return Scaffold(
       appBar: AppBar(
         title: chapterAsync.whenData((ch) => ch).valueOrNull != null
-            ? Text('${AppStrings.chapter} ${chapterAsync.value!.chapterLabel ?? chapterAsync.value!.number}')
-            : Text('${AppStrings.chapter} ${widget.chapterId}'),
+            ? Text('${tr.chapter} ${chapterAsync.value!.chapterLabel ?? chapterAsync.value!.number}')
+            : Text('${tr.chapter} ${widget.chapterId}'),
         actions: [
           // Audio icon — only shown when audio exists for this chapter+language
           if (audioTrack != null)
@@ -183,7 +186,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
           // Font size decrease
           IconButton(
             icon: const Icon(Icons.text_decrease, size: 20),
-            tooltip: 'Smaller text',
+            tooltip: tr.smallerText,
             onPressed: settings.fontSize > minFontSize
                 ? () => ref.read(readerSettingsProvider.notifier).decreaseFontSize()
                 : null,
@@ -191,7 +194,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
           // Font size increase
           IconButton(
             icon: const Icon(Icons.text_increase, size: 20),
-            tooltip: 'Larger text',
+            tooltip: tr.largerText,
             onPressed: settings.fontSize < maxFontSize
                 ? () => ref.read(readerSettingsProvider.notifier).increaseFontSize()
                 : null,
@@ -202,7 +205,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
               isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
               color: isBookmarked ? AppColors.saffron : null,
             ),
-            tooltip: isBookmarked ? 'Remove bookmark' : 'Bookmark',
+            tooltip: tr.bookmark,
             onPressed: () => ref
                 .read(readingProgressProvider.notifier)
                 .toggleBookmark(widget.chapterId),
@@ -376,7 +379,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                             );
                           },
                           icon: const Icon(Icons.arrow_back_ios, size: 16),
-                          label: const Text('Previous'),
+                          label: Text(tr.previous),
                           style: TextButton.styleFrom(
                             foregroundColor: AppColors.mediumText,
                           ),
@@ -399,7 +402,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                               ),
                             );
                           },
-                          icon: const Text('Next'),
+                          icon: Text(tr.next),
                           label: const Icon(Icons.arrow_forward_ios, size: 16),
                           style: FilledButton.styleFrom(
                             backgroundColor: AppColors.saffron,
@@ -488,6 +491,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
 
       if (trimmed == '---') {
         inFootnotes = true;
+        final notesLabel = S('en').notes; // notes label from translations
         widgets.add(Padding(
           padding: const EdgeInsets.symmetric(vertical: 20),
           child: Row(
@@ -495,7 +499,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
               Expanded(child: Container(height: 1, color: AppColors.lightGrey)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text('Notes',
+                child: Text(notesLabel,
                     style: TextStyle(
                         fontSize: 12,
                         color: AppColors.lightText,
@@ -726,6 +730,7 @@ class _ShareHighlightSheetState extends ConsumerState<_ShareHighlightSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final groups = ref.watch(groupsProvider);
 
     return Padding(
@@ -739,12 +744,12 @@ class _ShareHighlightSheetState extends ConsumerState<_ShareHighlightSheet> {
             children: [
               const Icon(Icons.format_quote_rounded, color: AppColors.saffron, size: 22),
               const SizedBox(width: 8),
-              const Text('Share Highlight',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+              Text(tr.shareHighlight,
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             ],
           ),
           const SizedBox(height: 4),
-          Text('Long press any verse to share it with your group',
+          Text(tr.longPressHint,
               style: TextStyle(fontSize: 12, color: AppColors.lightText)),
           const SizedBox(height: 14),
           // Highlighted text preview
@@ -896,11 +901,13 @@ class _ShareHighlightSheetState extends ConsumerState<_ShareHighlightSheet> {
 /// Prompts them to mark it as completed and notifies the group.
 class _CompletionSheet extends StatelessWidget {
   final String chapterTitle;
+  final AppTr tr;
   final VoidCallback onCompleted;
   final VoidCallback onLater;
 
   const _CompletionSheet({
     required this.chapterTitle,
+    required this.tr,
     required this.onCompleted,
     required this.onLater,
   });
@@ -931,7 +938,7 @@ class _CompletionSheet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Chapter Complete! 🙏',
+            tr.chapterComplete,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
@@ -947,7 +954,7 @@ class _CompletionSheet extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Marking it complete will notify your group.',
+            tr.notifyGroup,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
@@ -966,7 +973,7 @@ class _CompletionSheet extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: Text('Later',
+                  child: Text(tr.later,
                       style: TextStyle(color: AppColors.mediumText, fontWeight: FontWeight.w600)),
                 ),
               ),
@@ -976,8 +983,8 @@ class _CompletionSheet extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: onCompleted,
                   icon: const Icon(Icons.check_circle_outline, size: 18),
-                  label: const Text('Mark as Completed',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  label: Text(tr.markAsCompleted,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.green.shade600,
                     padding: const EdgeInsets.symmetric(vertical: 14),

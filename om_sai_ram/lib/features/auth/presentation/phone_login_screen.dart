@@ -7,11 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/services/router_service.dart';
+import '../../../core/providers/language_provider.dart';
+import '../../../core/l10n/s.dart';
 import '../providers/auth_provider.dart';
 
 /// Two-step screen: enter mobile number → receive OTP → enter OTP → logged in.
@@ -114,6 +114,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final authState = ref.watch(authStateProvider);
 
     ref.listen<AuthState>(authStateProvider, (prev, next) {
@@ -201,7 +202,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
               const SizedBox(height: 8),
               Text(
                 _otpSent
-                    ? '${AppStrings.otpSentTo} ${_normalizedPhone}'
+                    ? '${tr.otpSentTo} ${_normalizedPhone}'
                     : 'We\'ll send a 6-digit OTP to your mobile number',
                 style: TextStyle(color: AppColors.lightText, fontSize: 14, height: 1.5),
                 textAlign: TextAlign.center,
@@ -215,6 +216,8 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                   controller: _phoneController,
                   isLoading: authState.isLoading,
                   onSend: _sendOtp,
+                  mobileHint: tr.mobileNumberHint,
+                  sendOtpLabel: tr.sendOtp,
                 )
               else
                 _OtpStep(
@@ -226,6 +229,10 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                   resendSecondsLeft: _resendSecondsLeft,
                   onVerify: _verifyOtp,
                   onResend: _resendSecondsLeft == 0 ? _sendOtp : null,
+                  verifyOtpLabel: tr.verifyOtp,
+                  resendOtpLabel: tr.resendOtp,
+                  otpExpiryLabel: tr.otpExpiry,
+                  fullNameHint: tr.fullName,
                 ),
 
               const SizedBox(height: 32),
@@ -256,12 +263,16 @@ class _PhoneStep extends StatelessWidget {
   final TextEditingController controller;
   final bool isLoading;
   final VoidCallback onSend;
+  final String mobileHint;
+  final String sendOtpLabel;
 
   const _PhoneStep({
     required this.formKey,
     required this.controller,
     required this.isLoading,
     required this.onSend,
+    required this.mobileHint,
+    required this.sendOtpLabel,
   });
 
   @override
@@ -283,7 +294,7 @@ class _PhoneStep extends StatelessWidget {
             onFieldSubmitted: (_) => onSend(),
             style: const TextStyle(fontSize: 18, letterSpacing: 1),
             decoration: InputDecoration(
-              hintText: AppStrings.mobileNumberHint,
+              hintText: mobileHint,
               prefixIcon: const Icon(Icons.phone_outlined),
               helperText: 'Include country code, e.g. +91 for India',
               helperStyle: TextStyle(color: AppColors.lightText, fontSize: 12),
@@ -301,8 +312,8 @@ class _PhoneStep extends StatelessWidget {
                       child: CircularProgressIndicator(
                           strokeWidth: 2.5, color: Colors.white),
                     )
-                  : const Text(AppStrings.sendOtp,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  : Text(sendOtpLabel,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -322,6 +333,10 @@ class _OtpStep extends StatelessWidget {
   final int resendSecondsLeft;
   final VoidCallback onVerify;
   final VoidCallback? onResend;
+  final String verifyOtpLabel;
+  final String resendOtpLabel;
+  final String otpExpiryLabel;
+  final String fullNameHint;
 
   const _OtpStep({
     required this.formKey,
@@ -332,6 +347,10 @@ class _OtpStep extends StatelessWidget {
     required this.resendSecondsLeft,
     required this.onVerify,
     required this.onResend,
+    required this.verifyOtpLabel,
+    required this.resendOtpLabel,
+    required this.otpExpiryLabel,
+    required this.fullNameHint,
   });
 
   @override
@@ -384,7 +403,7 @@ class _OtpStep extends StatelessWidget {
 
           // Expiry note
           Text(
-            AppStrings.otpExpiry,
+            otpExpiryLabel,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: AppColors.lightText),
           ),
@@ -412,9 +431,9 @@ class _OtpStep extends StatelessWidget {
               textInputAction: TextInputAction.done,
               validator: (v) => Validators.required(v, 'Name'),
               onFieldSubmitted: (_) => onVerify(),
-              decoration: const InputDecoration(
-                hintText: AppStrings.fullName,
-                prefixIcon: Icon(Icons.person_outlined),
+              decoration: InputDecoration(
+                hintText: fullNameHint,
+                prefixIcon: const Icon(Icons.person_outlined),
               ),
             ),
           ],
@@ -433,8 +452,8 @@ class _OtpStep extends StatelessWidget {
                       child: CircularProgressIndicator(
                           strokeWidth: 2.5, color: Colors.white),
                     )
-                  : const Text(AppStrings.verifyOtp,
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  : Text(verifyOtpLabel,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
 
@@ -450,8 +469,8 @@ class _OtpStep extends StatelessWidget {
                 : TextButton(
                     onPressed: onResend,
                     style: TextButton.styleFrom(foregroundColor: AppColors.saffron),
-                    child: const Text(AppStrings.resendOtp,
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    child: Text(resendOtpLabel,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   ),
           ),
         ],

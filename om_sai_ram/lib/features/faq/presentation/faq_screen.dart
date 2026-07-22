@@ -2,8 +2,10 @@
 // FAQ screen — frequently asked questions with expandable answers.
 
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_strings.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/l10n/s.dart';
+import '../../../core/providers/language_provider.dart';
 
 /// FAQ screen with expandable question/answer tiles.
 ///
@@ -13,14 +15,15 @@ import '../../../core/theme/app_colors.dart';
 /// - What is Parayana/Saptah
 /// - How chapter assignments work
 /// - Reading progress tracking
-class FaqScreen extends StatelessWidget {
+class FaqScreen extends ConsumerWidget {
   const FaqScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.frequentlyAskedQuestions),
+        title: Text(tr.frequentlyAskedQuestions),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

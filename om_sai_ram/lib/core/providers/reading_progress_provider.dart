@@ -13,8 +13,9 @@ const _kStreakDatesKey = 'streak_dates';
 class ReadingProgressState {
   final Set<int> completedChapters;
   final Set<int> bookmarks;
-  final int currentStreak;
-  final int longestStreak;
+  final int currentStreak; // week streak
+  final int longestStreak; // longest week streak
+  final int readingsThisWeek; // distinct days read in current ISO week
   final int? resumeChapter;
   final double resumePosition;
   final List<String> streakDates; // ISO date strings of read days
@@ -24,6 +25,7 @@ class ReadingProgressState {
     this.bookmarks = const {},
     this.currentStreak = 0,
     this.longestStreak = 0,
+    this.readingsThisWeek = 0,
     this.resumeChapter,
     this.resumePosition = 0.0,
     this.streakDates = const [],
@@ -34,6 +36,7 @@ class ReadingProgressState {
     Set<int>? bookmarks,
     int? currentStreak,
     int? longestStreak,
+    int? readingsThisWeek,
     int? resumeChapter,
     double? resumePosition,
     List<String>? streakDates,
@@ -43,6 +46,7 @@ class ReadingProgressState {
       bookmarks: bookmarks ?? this.bookmarks,
       currentStreak: currentStreak ?? this.currentStreak,
       longestStreak: longestStreak ?? this.longestStreak,
+      readingsThisWeek: readingsThisWeek ?? this.readingsThisWeek,
       resumeChapter: resumeChapter ?? this.resumeChapter,
       resumePosition: resumePosition ?? this.resumePosition,
       streakDates: streakDates ?? this.streakDates,
@@ -70,6 +74,7 @@ class ReadingProgressNotifier extends StateNotifier<ReadingProgressState> {
       bookmarks: bookmarksRaw.map(int.parse).toSet(),
       currentStreak: streaks.$1,
       longestStreak: streaks.$2,
+      readingsThisWeek: streaks.$3,
       resumeChapter: resumeChapter,
       resumePosition: resumePosition,
       streakDates: streakDates,
@@ -88,6 +93,7 @@ class ReadingProgressNotifier extends StateNotifier<ReadingProgressState> {
       state = state.copyWith(
         currentStreak: streaks.$1,
         longestStreak: streaks.$2,
+        readingsThisWeek: streaks.$3,
         streakDates: dates,
       );
     }
@@ -128,57 +134,71 @@ class ReadingProgressNotifier extends StateNotifier<ReadingProgressState> {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
-  (int, int) _computeStreaks(List<String> dates) {
-    if (dates.isEmpty) return (0, 0);
-    final sorted = List<String>.from(dates)..sort();
-    final unique = sorted.toSet().toList()..sort();
+  // Returns (currentWeekStreak, longestWeekStreak, readingsThisWeek).
+  // A "week" is the ISO week (Mon–Sun). The streak counts consecutive weeks
+  // where at least one reading happened. readingsThisWeek is the number of
+  // distinct days read in the current ISO week.
+  (int, int, int) _computeStreaks(List<String> dates) {
+    if (dates.isEmpty) return (0, 0, 0);
 
-    int current = 0;
-    int longest = 0;
+    final unique = dates.toSet().map(DateTime.parse).toList()..sort();
+
+    // Map each date to its ISO year+week key "yyyy-Www"
+    String isoWeekKey(DateTime d) {
+      // ISO week: week containing Thursday. weekday Mon=1..Sun=7.
+      final thursday = d.add(Duration(days: 4 - d.weekday));
+      final firstDayOfYear = DateTime(thursday.year, 1, 1);
+      final weekNum =
+          ((thursday.difference(firstDayOfYear).inDays) / 7).floor() + 1;
+      return '${thursday.year}-W${weekNum.toString().padLeft(2, '0')}';
+    }
+
+    final weeks = unique.map(isoWeekKey).toSet().toList()..sort();
+
+    // Longest streak of consecutive weeks
+    int longest = 1;
     int streak = 1;
-
-    for (int i = 1; i < unique.length; i++) {
-      final prev = DateTime.parse(unique[i - 1]);
-      final curr = DateTime.parse(unique[i]);
-      final diff = curr.difference(prev).inDays;
-      if (diff == 1) {
+    for (int i = 1; i < weeks.length; i++) {
+      final prev = _parseIsoWeek(weeks[i - 1]);
+      final curr = _parseIsoWeek(weeks[i]);
+      if (curr.difference(prev).inDays == 7) {
         streak++;
-      } else {
         if (streak > longest) longest = streak;
+      } else {
         streak = 1;
       }
     }
-    if (streak > longest) longest = streak;
 
-    // Current streak: count backwards from today
-    final today = DateTime.now();
-    current = 0;
-    for (int i = unique.length - 1; i >= 0; i--) {
-      final d = DateTime.parse(unique[i]);
-      final expected = today.subtract(Duration(days: unique.length - 1 - i));
-      final dayDiff = today.difference(d).inDays;
-      if (dayDiff == unique.length - 1 - i) {
-        current++;
-      } else {
-        break;
-      }
-      if (expected == d) continue;
-    }
-    // Simpler current streak: walk back from today
-    current = 0;
-    DateTime check = today;
+    // Current streak: walk backwards from this week
+    final thisWeek = isoWeekKey(DateTime.now());
+    int current = 0;
+    DateTime checkWeek = _parseIsoWeek(thisWeek);
     while (true) {
-      final s =
-          '${check.year}-${check.month.toString().padLeft(2, '0')}-${check.day.toString().padLeft(2, '0')}';
-      if (unique.contains(s)) {
+      final key = isoWeekKey(checkWeek);
+      if (weeks.contains(key)) {
         current++;
-        check = check.subtract(const Duration(days: 1));
+        checkWeek = checkWeek.subtract(const Duration(days: 7));
       } else {
         break;
       }
     }
 
-    return (current, longest);
+    // Readings this week: distinct days in the current ISO week
+    final readingsThisWeek =
+        unique.where((d) => isoWeekKey(d) == thisWeek).length;
+
+    return (current, longest, readingsThisWeek);
+  }
+
+  // Returns the Monday of the ISO week encoded as "yyyy-Www"
+  DateTime _parseIsoWeek(String key) {
+    final parts = key.split('-W');
+    final year = int.parse(parts[0]);
+    final week = int.parse(parts[1]);
+    // Jan 4 is always in week 1 (ISO 8601)
+    final jan4 = DateTime(year, 1, 4);
+    final monday = jan4.subtract(Duration(days: jan4.weekday - 1));
+    return monday.add(Duration(days: (week - 1) * 7));
   }
 }
 

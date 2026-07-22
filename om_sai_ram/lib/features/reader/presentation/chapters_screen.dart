@@ -4,11 +4,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/language_provider.dart';
+import '../../../core/l10n/s.dart';
 import '../../../core/providers/reading_progress_provider.dart';
 import '../providers/reader_provider.dart';
+import '../../../shared/widgets/app_shell.dart';
 
 /// Displays a scrollable list of all Satcharita chapters.
 ///
@@ -47,12 +48,17 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final state = ref.watch(chaptersProvider);
     final readerLang = ref.watch(languageProvider).readerLanguage;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.saiSatcharita),
+        title: Text(tr.saiSatcharita),
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: () => AppShell.scaffoldKey.currentState?.openDrawer(),
+        ),
         actions: [
           _ReaderLanguageToggle(current: readerLang),
           const SizedBox(width: 8),

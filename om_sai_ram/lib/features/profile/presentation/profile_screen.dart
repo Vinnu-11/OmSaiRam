@@ -4,13 +4,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/router_service.dart';
 import '../../../core/services/notifications_service.dart';
 import '../../../core/providers/language_provider.dart';
 import '../../../core/providers/reader_settings_provider.dart';
 import '../../../core/providers/reading_progress_provider.dart';
+import '../../../core/l10n/s.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../reader/providers/reader_provider.dart';
 
@@ -25,6 +25,7 @@ class ProfileScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final authState = ref.watch(authStateProvider);
     final user = authState.user;
     final langState = ref.watch(languageProvider);
@@ -33,7 +34,7 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.profile),
+        title: Text(tr.profile),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -103,7 +104,7 @@ class ProfileScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(left: 4, bottom: 10),
             child: Text(
-              'Settings',
+              tr.settings,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: AppColors.lightText,
                     fontWeight: FontWeight.w600,
@@ -151,13 +152,13 @@ class ProfileScreen extends ConsumerWidget {
               children: [
                 _SettingsTile(
                   icon: Icons.person_outlined,
-                  title: AppStrings.editProfile,
+                  title: tr.editProfile,
                   onTap: () {},
                 ),
                 Divider(height: 1, indent: 56, color: AppColors.lightGrey),
                 _SettingsTile(
                   icon: Icons.language_outlined,
-                  title: AppStrings.language,
+                  title: tr.language,
                   subtitle: langState.appLanguage.label,
                   onTap: () => _showLanguageDialog(context, ref, langState),
                 ),
@@ -180,9 +181,9 @@ class ProfileScreen extends ConsumerWidget {
                       size: 20,
                     ),
                   ),
-                  title: const Text(
-                    'Dark Mode',
-                    style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+                  title: Text(
+                    tr.darkMode,
+                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
                   ),
                   trailing: Switch(
                     value: readerSettings.darkMode,
@@ -222,15 +223,15 @@ class ProfileScreen extends ConsumerWidget {
               children: [
                 _SettingsTile(
                   icon: Icons.help_outline,
-                  title: AppStrings.faq,
+                  title: tr.faq,
                   onTap: () => context.go(AppRoutes.faq),
                 ),
                 Divider(height: 1, indent: 56, color: AppColors.lightGrey),
                 _SettingsTile(
                   icon: Icons.info_outlined,
-                  title: AppStrings.about,
+                  title: tr.about,
                   subtitle: 'Version 1.0.0',
-                  onTap: () => _showAboutDialog(context),
+                  onTap: () => _showAboutDialog(context, tr),
                 ),
               ],
             ),
@@ -247,7 +248,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             child: _SettingsTile(
               icon: Icons.logout_rounded,
-              title: AppStrings.logout,
+              title: tr.logout,
               iconColor: AppColors.error,
               titleColor: AppColors.error,
               showChevron: false,
@@ -258,19 +259,19 @@ class ProfileScreen extends ConsumerWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    title: const Text('Logout'),
-                    content: const Text('Are you sure you want to logout?'),
+                    title: Text(tr.logout),
+                    content: Text(tr.logoutConfirmBody),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel'),
+                        child: Text(tr.cancel),
                       ),
                       FilledButton(
                         onPressed: () => Navigator.pop(ctx, true),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.error,
                         ),
-                        child: const Text('Logout'),
+                        child: Text(tr.logout),
                       ),
                     ],
                   ),
@@ -301,7 +302,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showAboutDialog(BuildContext context) {
+  void _showAboutDialog(BuildContext context, AppTr tr) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -317,7 +318,7 @@ class ProfileScreen extends ConsumerWidget {
               child: Icon(Icons.auto_stories, color: AppColors.saffron, size: 20),
             ),
             const SizedBox(width: 10),
-            const Text(AppStrings.appName),
+            Text(tr.appName),
           ],
         ),
         content: const Text(
@@ -362,6 +363,7 @@ class _LanguageSettingsSheetState
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return DraggableScrollableSheet(
       expand: false,
@@ -385,7 +387,7 @@ class _LanguageSettingsSheetState
                             color: AppColors.saffron, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          'Language Settings',
+                          tr.languageSettings,
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
@@ -406,7 +408,7 @@ class _LanguageSettingsSheetState
                   children: [
                     // App language section
                     Text(
-                      'App Language',
+                      tr.appLanguageLabel,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: AppColors.mediumText,
@@ -429,14 +431,14 @@ class _LanguageSettingsSheetState
 
                     // Reader language section
                     Text(
-                      'Reader Language',
+                      tr.readerLanguageLabel,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.w600,
                             color: AppColors.mediumText,
                           ),
                     ),
                     Text(
-                      'The language used for the Satcharita text',
+                      tr.readerLanguageHint,
                       style:
                           TextStyle(fontSize: 12, color: AppColors.lightText),
                     ),
@@ -469,8 +471,8 @@ class _LanguageSettingsSheetState
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text('Save',
-                        style: TextStyle(
+                    child: Text(tr.save,
+                        style: const TextStyle(
                             fontSize: 15, fontWeight: FontWeight.w600)),
                   ),
                 ),

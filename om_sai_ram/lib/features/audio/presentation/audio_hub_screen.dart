@@ -3,21 +3,25 @@
 // Designed for ease of use by elderly devotees.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/router_service.dart';
+import '../../../core/providers/language_provider.dart';
+import '../../../core/l10n/s.dart';
 
-class AudioHubScreen extends StatelessWidget {
+class AudioHubScreen extends ConsumerWidget {
   const AudioHubScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        title: const Text('Audio', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(tr.audio, style: const TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: false,
       ),
       body: SafeArea(
@@ -67,7 +71,7 @@ class AudioHubScreen extends StatelessWidget {
               // Aarti card
               _AudioCard(
                 icon: Icons.music_note_rounded,
-                title: 'Aarti',
+                title: tr.aarti,
                 subtitle: 'Daily aartis from Shirdi Sansthan\n5 aartis · Bhupali, Kakad, Madhyan, Dhup, Shej',
                 color: AppColors.saffron,
                 onTap: () => context.go(AppRoutes.aarti),
@@ -78,7 +82,7 @@ class AudioHubScreen extends StatelessWidget {
               // Satcharitra audio card
               _AudioCard(
                 icon: Icons.headphones_rounded,
-                title: 'Satcharitra Audio',
+                title: tr.satcharitaAudio,
                 subtitle: 'Listen to Sai Satcharitra by chapter\nAvailable in Marathi, Hindi, Telugu, Tamil',
                 color: AppColors.deepOrange,
                 onTap: () => context.go(AppRoutes.satcharitaAudio),

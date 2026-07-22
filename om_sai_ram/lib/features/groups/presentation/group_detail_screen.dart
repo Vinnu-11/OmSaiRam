@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/constants/app_strings.dart';
+import '../../../core/providers/language_provider.dart';
+import '../../../core/l10n/s.dart';
 import '../data/group_model.dart';
 import '../data/assignment_model.dart';
 import '../data/chat_model.dart';
@@ -133,9 +134,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
           indicatorColor: AppColors.saffron,
           tabs: [
             if (_isLead)
-              const Tab(icon: Icon(Icons.people_outline, size: 20), text: AppStrings.members),
-            const Tab(icon: Icon(Icons.calendar_today_outlined, size: 20), text: AppStrings.schedule),
-            const Tab(icon: Icon(Icons.chat_bubble_outline, size: 20), text: AppStrings.groupChat),
+              Tab(icon: const Icon(Icons.people_outline, size: 20), text: S(ref.watch(languageProvider).appLanguage.code).members),
+            Tab(icon: const Icon(Icons.calendar_today_outlined, size: 20), text: S(ref.watch(languageProvider).appLanguage.code).schedule),
+            Tab(icon: const Icon(Icons.chat_bubble_outline, size: 20), text: S(ref.watch(languageProvider).appLanguage.code).groupChat),
           ],
         ),
       ),
@@ -270,6 +271,7 @@ class _MemberCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -283,7 +285,7 @@ class _MemberCard extends ConsumerWidget {
         title: Text(member.name,
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
         subtitle: Text(
-          _roleLabel(member.role),
+          _roleLabel(member.role, tr),
           style: TextStyle(fontSize: 12, color: AppColors.lightText),
         ),
         trailing: Row(
@@ -304,18 +306,19 @@ class _MemberCard extends ConsumerWidget {
     );
   }
 
-  String _roleLabel(String role) {
+  String _roleLabel(String role, AppTr tr) {
     switch (role) {
       case 'admin':
         return 'Admin';
       case 'group_lead':
-        return AppStrings.groupLead;
+        return tr.groupLead;
       default:
-        return AppStrings.memberLabel;
+        return tr.memberLabel;
     }
   }
 
   void _showRoleSheet(BuildContext context, WidgetRef ref) {
+    final tr = S(ref.read(languageProvider).appLanguage.code);
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -335,7 +338,7 @@ class _MemberCard extends ConsumerWidget {
             const SizedBox(height: 20),
             _RoleOption(
               icon: Icons.star_outline_rounded,
-              label: AppStrings.groupLead,
+              label: tr.groupLead,
               description: 'Can assign & schedule chapters',
               selected: member.role == 'group_lead',
               onTap: () {
@@ -346,7 +349,7 @@ class _MemberCard extends ConsumerWidget {
             const SizedBox(height: 8),
             _RoleOption(
               icon: Icons.person_outline,
-              label: AppStrings.memberLabel,
+              label: tr.memberLabel,
               description: 'Regular reader',
               selected: member.role == 'member',
               onTap: () {
@@ -805,19 +808,21 @@ class _AssignmentCard extends StatelessWidget {
     }
   }
 
-  String get _statusLabel {
+  String _statusLabel(AppTr tr) {
     switch (assignment.status) {
       case ReadingStatus.completed:
-        return AppStrings.completed;
+        return tr.completed;
       case ReadingStatus.inProgress:
-        return AppStrings.inProgress;
+        return tr.inProgress;
       default:
-        return AppStrings.notStarted;
+        return tr.notStarted;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Use English fallback for status labels in this StatelessWidget
+    final tr = S('en');
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -902,7 +907,7 @@ class _AssignmentCard extends StatelessWidget {
                     border: Border.all(color: _statusColor.withOpacity(0.3)),
                   ),
                   child: Text(
-                    _statusLabel,
+                    _statusLabel(tr),
                     style: TextStyle(
                         fontSize: 12,
                         color: _statusColor,
@@ -1636,7 +1641,8 @@ class _RoleBadge extends StatelessWidget {
     if (role == 'member') return const SizedBox.shrink();
 
     final isLead = role == 'group_lead';
-    final label = isLead ? AppStrings.groupLead : 'Admin';
+    // Use English fallback since this is a StatelessWidget without ref
+    final label = isLead ? S('en').groupLead : 'Admin';
     final color = isLead ? AppColors.info : AppColors.saffron;
     final icon = isLead ? Icons.star_half_rounded : Icons.star_rounded;
 

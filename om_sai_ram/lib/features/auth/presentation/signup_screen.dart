@@ -5,10 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter/services.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/services/router_service.dart';
+import '../../../core/providers/language_provider.dart';
+import '../../../core/l10n/s.dart';
 import '../providers/auth_provider.dart';
 
 /// Signup screen for new user registration.
@@ -78,6 +79,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final authState = ref.watch(authStateProvider);
 
     // Show error snackbar
@@ -159,9 +161,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                           textInputAction: TextInputAction.next,
                           textCapitalization: TextCapitalization.words,
                           validator: (v) => Validators.required(v, 'Name'),
-                          decoration: const InputDecoration(
-                            hintText: AppStrings.fullName,
-                            prefixIcon: Icon(Icons.person_outlined),
+                          decoration: InputDecoration(
+                            hintText: tr.fullName,
+                            prefixIcon: const Icon(Icons.person_outlined),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -172,9 +174,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           validator: Validators.email,
-                          decoration: const InputDecoration(
-                            hintText: AppStrings.email,
-                            prefixIcon: Icon(Icons.email_outlined),
+                          decoration: InputDecoration(
+                            hintText: tr.email,
+                            prefixIcon: const Icon(Icons.email_outlined),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -193,7 +195,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                             return Validators.phone(v);
                           },
                           decoration: InputDecoration(
-                            hintText: AppStrings.mobileNumberHint,
+                            hintText: tr.mobileNumberHint,
                             prefixIcon: const Icon(Icons.phone_outlined),
                             suffixText: 'Optional',
                             suffixStyle: TextStyle(
@@ -209,7 +211,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                           textInputAction: TextInputAction.next,
                           validator: Validators.password,
                           decoration: InputDecoration(
-                            hintText: AppStrings.password,
+                            hintText: tr.password,
                             prefixIcon: const Icon(Icons.lock_outlined),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -237,7 +239,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                           ),
                           onFieldSubmitted: (_) => _handleSignup(),
                           decoration: InputDecoration(
-                            hintText: AppStrings.confirmPassword,
+                            hintText: tr.confirmPassword,
                             prefixIcon: const Icon(Icons.lock_outlined),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -270,7 +272,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Text(AppStrings.signup),
+                                : Text(tr.signup),
                           ),
                         ),
                       ],
@@ -284,14 +286,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        AppStrings.alreadyHaveAccount,
+                        tr.alreadyHaveAccount,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(width: 4),
                       GestureDetector(
                         onTap: () => context.go(AppRoutes.login),
                         child: Text(
-                          AppStrings.login,
+                          tr.login,
                           style: TextStyle(
                             color: AppColors.saffron,
                             fontWeight: FontWeight.w600,

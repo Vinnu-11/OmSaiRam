@@ -2,18 +2,21 @@
 // Satcharitra Audio screen — language tabs + chapter download list.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/providers/language_provider.dart';
+import '../../../core/l10n/s.dart';
 import '../data/audio_data.dart';
 
-class SatcharitaAudioScreen extends StatefulWidget {
+class SatcharitaAudioScreen extends ConsumerStatefulWidget {
   const SatcharitaAudioScreen({super.key});
 
   @override
-  State<SatcharitaAudioScreen> createState() => _SatcharitaAudioScreenState();
+  ConsumerState<SatcharitaAudioScreen> createState() => _SatcharitaAudioScreenState();
 }
 
-class _SatcharitaAudioScreenState extends State<SatcharitaAudioScreen>
+class _SatcharitaAudioScreenState extends ConsumerState<SatcharitaAudioScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -31,14 +34,15 @@ class _SatcharitaAudioScreenState extends State<SatcharitaAudioScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        title: const Text(
-          'Satcharitra Audio',
-          style: TextStyle(fontWeight: FontWeight.w700),
+        title: Text(
+          tr.satcharitaAudio,
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         centerTitle: false,
         bottom: PreferredSize(
@@ -69,7 +73,7 @@ class _SatcharitaAudioScreenState extends State<SatcharitaAudioScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: kSatcharitaAudio.map((lang) => _ChapterList(language: lang)).toList(),
+        children: kSatcharitaAudio.map((lang) => _ChapterList(language: lang, downloadLabel: tr.downloadAudio)).toList(),
       ),
     );
   }
@@ -77,7 +81,8 @@ class _SatcharitaAudioScreenState extends State<SatcharitaAudioScreen>
 
 class _ChapterList extends StatelessWidget {
   final SatcharitaLanguage language;
-  const _ChapterList({required this.language});
+  final String downloadLabel;
+  const _ChapterList({required this.language, required this.downloadLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +118,7 @@ class _ChapterList extends StatelessWidget {
             itemCount: language.chapters.length,
             itemBuilder: (context, i) {
               final chapter = language.chapters[i];
-              return _ChapterTile(index: i + 1, track: chapter);
+              return _ChapterTile(index: i + 1, track: chapter, downloadLabel: downloadLabel);
             },
           ),
         ),
@@ -125,7 +130,8 @@ class _ChapterList extends StatelessWidget {
 class _ChapterTile extends StatelessWidget {
   final int index;
   final AudioTrack track;
-  const _ChapterTile({required this.index, required this.track});
+  final String downloadLabel;
+  const _ChapterTile({required this.index, required this.track, required this.downloadLabel});
 
   Future<void> _download(BuildContext context) async {
     final uri = Uri.parse(track.downloadUrl);
@@ -193,14 +199,14 @@ class _ChapterTile extends StatelessWidget {
                   color: AppColors.saffron,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.download_rounded, color: Colors.white, size: 18),
-                    SizedBox(width: 5),
+                    const Icon(Icons.download_rounded, color: Colors.white, size: 18),
+                    const SizedBox(width: 5),
                     Text(
-                      'Download',
-                      style: TextStyle(
+                      downloadLabel,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

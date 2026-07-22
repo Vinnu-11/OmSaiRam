@@ -4,10 +4,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/services/router_service.dart';
+import '../../../core/providers/language_provider.dart';
+import '../../../core/l10n/s.dart';
 import '../providers/auth_provider.dart';
 import '../../../shared/widgets/social_login_button.dart';
 
@@ -76,6 +77,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tr = S(ref.watch(languageProvider).appLanguage.code);
     final authState = ref.watch(authStateProvider);
     final screenHeight = MediaQuery.of(context).size.height;
 
@@ -166,12 +168,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           ),
                           const SizedBox(height: 20),
                           Text(
-                            AppStrings.appName,
+                            tr.appName,
                             style: Theme.of(context).textTheme.displayMedium,
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            AppStrings.appTagline,
+                            tr.appTagline,
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: AppColors.lightText,
                                 ),
@@ -196,9 +198,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             autocorrect: false,
                             enableSuggestions: false,
                             validator: Validators.email,
-                            decoration: const InputDecoration(
-                              hintText: AppStrings.email,
-                              prefixIcon: Icon(Icons.email_outlined),
+                            decoration: InputDecoration(
+                              hintText: tr.email,
+                              prefixIcon: const Icon(Icons.email_outlined),
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -211,7 +213,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             validator: Validators.password,
                             onFieldSubmitted: (_) => _handleLogin(),
                             decoration: InputDecoration(
-                              hintText: AppStrings.password,
+                              hintText: tr.password,
                               prefixIcon: const Icon(Icons.lock_outlined),
                               suffixIcon: IconButton(
                                 icon: Icon(
@@ -238,9 +240,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 foregroundColor: AppColors.saffron,
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                               ),
-                              child: const Text(
-                                AppStrings.forgotPassword,
-                                style: TextStyle(fontSize: 13),
+                              child: Text(
+                                tr.forgotPassword,
+                                style: const TextStyle(fontSize: 13),
                               ),
                             ),
                           ),
@@ -262,7 +264,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                         color: Colors.white,
                                       ),
                                     )
-                                  : const Text(AppStrings.login),
+                                  : Text(tr.login),
                             ),
                           ),
                         ],
@@ -278,7 +280,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
-                            AppStrings.orContinueWith,
+                            tr.orContinueWith,
                             style: TextStyle(
                               color: AppColors.lightText,
                               fontSize: 13,
@@ -293,13 +295,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                     // Mobile OTP login — most prominent for Indian users
                     SocialLoginButton(
-                      label: AppStrings.signInWithPhone,
+                      label: tr.signInWithPhone,
                       icon: Icons.phone_android_outlined,
                       onPressed: () => context.go(AppRoutes.phoneLogin),
                     ),
                     const SizedBox(height: 10),
                     SocialLoginButton(
-                      label: AppStrings.signInWithGoogle,
+                      label: tr.signInWithGoogle,
                       icon: Icons.g_mobiledata_rounded,
                       onPressed: () {
                         // TODO: Implement Google Sign-In
@@ -307,7 +309,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     ),
                     const SizedBox(height: 10),
                     SocialLoginButton(
-                      label: AppStrings.signInWithApple,
+                      label: tr.signInWithApple,
                       icon: Icons.apple_rounded,
                       onPressed: () {
                         // TODO: Implement Apple Sign-In
@@ -321,7 +323,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          AppStrings.dontHaveAccount,
+                          tr.dontHaveAccount,
                           style: TextStyle(
                             color: AppColors.mediumText,
                             fontSize: 14,
@@ -330,7 +332,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         GestureDetector(
                           onTap: () => context.go(AppRoutes.signup),
                           child: Text(
-                            AppStrings.signup,
+                            tr.signup,
                             style: TextStyle(
                               color: AppColors.saffron,
                               fontWeight: FontWeight.w600,
