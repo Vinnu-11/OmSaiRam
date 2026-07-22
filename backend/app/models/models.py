@@ -178,6 +178,44 @@ class Festival(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class GroupNotificationSchedule(Base):
+    """Notification schedule set by the group lead for weekly reading reminders.
+
+    Controls:
+    - When the initial 'start reading' reminder fires each week.
+    - When the reading deadline is (day+hour within the assignment week).
+    - Whether escalating reminders are enabled as the deadline approaches.
+    """
+
+    __tablename__ = "group_notification_schedules"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    group_id = Column(
+        String, ForeignKey("groups.id", ondelete="CASCADE"),
+        nullable=False, unique=True, index=True,
+    )
+    # Days from assignment's scheduled_date (Monday=0) when reading starts.
+    # e.g. 0 = notify Monday morning, 1 = Tuesday morning, etc.
+    initial_reminder_day_offset = Column(Integer, default=0)   # 0 = Monday
+    initial_reminder_hour = Column(Integer, default=9)          # 9 AM
+    initial_reminder_minute = Column(Integer, default=0)
+
+    # Days from scheduled_date when the reading deadline falls.
+    # e.g. 6 = Sunday (end of the week).
+    deadline_day_offset = Column(Integer, default=6)            # Sunday
+    deadline_hour = Column(Integer, default=22)                 # 10 PM
+    deadline_minute = Column(Integer, default=0)
+
+    # Whether to send escalating reminders as the deadline approaches.
+    escalation_enabled = Column(Boolean, default=True)
+
+    created_by = Column(String, ForeignKey("users.id"), nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    group = relationship("Group")
+
+
 class ChapterHighlightComment(Base):
     """A comment tied to a highlighted paragraph/verse in a chapter, shared with the group."""
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/api_client.dart';
 import '../../../core/constants/app_constants.dart';
 import 'assignment_model.dart';
+import 'schedule_suggestion_model.dart';
 
 final assignmentsRepositoryProvider = Provider<AssignmentsRepository>((ref) {
   return AssignmentsRepository(apiClient: ref.read(apiClientProvider));
@@ -52,18 +53,17 @@ class AssignmentsRepository {
     return Assignment.fromJson(response.data as Map<String, dynamic>);
   }
 
-  /// Auto-schedules chapters in sequential round-robin across all members.
+  /// Auto-schedules chapters for all members using the given mode.
   ///
-  /// Returns a record of:
-  /// - [assignments] — all created assignments
-  /// - [remainderChapters] — chapters that couldn't be evenly distributed
-  ///   (chapters_per_week % member_count != 0); group lead should decide
-  ///   what to do with these.
+  /// [scheduleMode]: 'independent' | 'rotating_window' | 'dense_window' | 'synchronized'
+  /// [remainderMode]: 'manual' | 'truncate' | 'extend_last' | 'round_robin' | 'cycle'
   Future<({List<Assignment> assignments, List<Map<String, dynamic>> remainderChapters})>
       autoSchedule({
     required String groupId,
     required int startChapter,
     int weeksAhead = 4,
+    String scheduleMode = 'independent',
+    String remainderMode = 'manual',
   }) async {
     final response = await _apiClient.post(
       '${AppConstants.assignmentsEndpoint}/auto-schedule',
@@ -71,6 +71,8 @@ class AssignmentsRepository {
         'group_id': groupId,
         'start_chapter': startChapter,
         'weeks_ahead': weeksAhead,
+        'schedule_mode': scheduleMode,
+        'remainder_mode': remainderMode,
       },
     );
     final body = response.data as Map<String, dynamic>;
@@ -80,6 +82,32 @@ class AssignmentsRepository {
     final remainder = (body['remainder_chapters'] as List? ?? [])
         .cast<Map<String, dynamic>>();
     return (assignments: assignments, remainderChapters: remainder);
+  }
+
+  /// Detect the lead's chapter-assignment pattern from 2+ manual hints and
+  /// return a full suggested grid for all members × [weeksAhead] weeks.
+  ///
+  /// No database writes — call [autoSchedule] with the returned mode to confirm.
+  Future<ScheduleSuggestion> suggestSchedule({
+    required String groupId,
+    required int weekNumber,
+    required List<({int position, int chapterStart})> hints,
+    int weeksAhead = 3,
+    String remainderMode = 'manual',
+  }) async {
+    final response = await _apiClient.post(
+      '${AppConstants.assignmentsEndpoint}/suggest',
+      data: {
+        'group_id': groupId,
+        'week_number': weekNumber,
+        'hints': hints
+            .map((h) => {'position': h.position, 'chapter_start': h.chapterStart})
+            .toList(),
+        'weeks_ahead': weeksAhead,
+        'remainder_mode': remainderMode,
+      },
+    );
+    return ScheduleSuggestion.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<int> advanceWeek(String groupId) async {
@@ -100,3 +128,4 @@ class AssignmentsRepository {
     );
   }
 }
+

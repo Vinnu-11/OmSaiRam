@@ -167,12 +167,89 @@ class CreateAssignmentRequest(BaseModel):
 
 
 class AutoScheduleRequest(BaseModel):
-    """Request to auto-schedule upcoming chapters for the group."""
+    """Request to auto-schedule upcoming chapters for the group.
+
+    schedule_mode controls how chapters are distributed within each week:
+      independent    — Each member reads a unique, non-overlapping slice.
+                       The group collectively covers N×W new chapters every week.
+      rotating_window — The reading window slides forward by W each week.
+                       Adjacent members read consecutive slices (gap = W).
+                       Same total coverage per week as independent, but each
+                       member's next-week assignment overlaps with neighbors.
+      dense_window   — The reading window slides by W per week but members are
+                       spaced just 1 chapter apart inside each week (gap = 1).
+                       Maximum overlap — great for chain-reading discussions.
+      synchronized   — All members read the same W chapters every week.
+
+    remainder_mode controls what happens when chapters run out unevenly:
+      truncate       — Last member(s) get fewer chapters; remainder flagged.
+      extend_last    — Last slot absorbs the extra chapter(s) to finish the book.
+      round_robin    — Extras looped back to members 0, 1, 2 … in order.
+      cycle          — Chapter numbers wrap around to Ch.1 after Ch.47.
+      manual         — Remainders reported back; group lead assigns manually.
+    """
     group_id: str
-    # First chapter number to start scheduling from
     start_chapter: int = Field(default=1, ge=1)
-    # How many weeks ahead to schedule
     weeks_ahead: int = Field(default=4, ge=1, le=12)
+    schedule_mode: str = Field(
+        default="independent",
+        pattern="^(independent|rotating_window|dense_window|synchronized)$",
+    )
+    remainder_mode: str = Field(
+        default="manual",
+        pattern="^(truncate|extend_last|round_robin|cycle|manual)$",
+    )
+
+
+# ─── Smart Suggest Schemas ────────────────────────────────────────────────────
+
+
+class ManualAssignmentHint(BaseModel):
+    """A chapter assignment the lead has already decided for one member position.
+
+    position is 0-based index in join-order of group members.
+    chapter_start is the first chapter number for that member this week.
+    """
+    position: int = Field(ge=0)
+    chapter_start: int = Field(ge=1)
+
+
+class SuggestScheduleRequest(BaseModel):
+    """Detect the lead's pattern from 2+ manual hints and suggest the full grid.
+
+    Provide at least 2 hints (for positions 0 and 1).  The endpoint detects the
+    chapter step between adjacent members and extrapolates:
+      - Remaining members in the current week
+      - weeks_ahead additional weeks using the same step and a W advance per week
+    No assignments are written to the database — call auto-schedule to confirm.
+    """
+    group_id: str
+    week_number: int = Field(default=1, ge=1)
+    hints: list[ManualAssignmentHint] = Field(..., min_length=2)
+    weeks_ahead: int = Field(default=3, ge=1, le=12)
+    remainder_mode: str = Field(
+        default="manual",
+        pattern="^(truncate|extend_last|round_robin|cycle|manual)$",
+    )
+
+
+class SuggestedSlot(BaseModel):
+    """One suggested chapter assignment in the preview grid."""
+    week_number: int
+    position: int          # 0-based member position in join order
+    user_id: str
+    user_name: str
+    chapter_numbers: list[int]   # ordered list of chapter numbers
+    is_manual: bool        # True = supplied by lead, False = computed
+
+
+class SuggestScheduleResponse(BaseModel):
+    """Result of pattern detection — full suggested grid, unconfirmed."""
+    detected_mode: str     # "non_overlapping" | "dense" | "custom"
+    detected_step: int     # chapter gap between adjacent members
+    chapters_per_member: int
+    suggestions: list[SuggestedSlot]
+    remainder_chapters: list[int]   # chapter numbers that exceed the book
 
 
 class AssignmentResponse(BaseModel):
@@ -277,3 +354,40 @@ class HighlightCommentResponse(BaseModel):
     paragraph_index: int
     comment: str
     created_at: datetime
+
+
+# ─── Notification Schedule Schemas ───────────────────────────────────────────
+
+
+class SetNotificationScheduleRequest(BaseModel):
+    """Request body to create or update a group's notification schedule."""
+    initial_reminder_day_offset: int = Field(
+        default=0, ge=0, le=6,
+        description="Days from assignment Monday when the first reminder fires (0=Mon … 6=Sun)",
+    )
+    initial_reminder_hour: int = Field(default=9, ge=0, le=23)
+    initial_reminder_minute: int = Field(default=0, ge=0, le=59)
+    deadline_day_offset: int = Field(
+        default=6, ge=0, le=6,
+        description="Days from assignment Monday when the reading deadline falls (0=Mon … 6=Sun)",
+    )
+    deadline_hour: int = Field(default=22, ge=0, le=23)
+    deadline_minute: int = Field(default=0, ge=0, le=59)
+    escalation_enabled: bool = True
+
+
+class NotificationScheduleResponse(BaseModel):
+    """Group notification schedule returned from the API."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    group_id: str
+    initial_reminder_day_offset: int
+    initial_reminder_hour: int
+    initial_reminder_minute: int
+    deadline_day_offset: int
+    deadline_hour: int
+    deadline_minute: int
+    escalation_enabled: bool
+    created_by: str
+    updated_at: datetime

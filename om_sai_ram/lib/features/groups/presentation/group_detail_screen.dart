@@ -13,6 +13,10 @@ import '../data/chat_model.dart';
 import '../data/groups_repository.dart';
 import '../data/assignments_repository.dart';
 import '../data/group_chat_repository.dart';
+import '../data/notification_schedule_model.dart';
+import '../data/notification_schedule_repository.dart';
+import '../data/schedule_suggestion_model.dart';
+import '../../../core/services/notifications_service.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class GroupDetailScreen extends ConsumerStatefulWidget {
@@ -462,6 +466,7 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
   bool _loading = true;
   int _selectedWeek = 1;
   int _currentWeek = 1;
+  GroupNotificationSchedule? _notifSchedule;
 
   @override
   void initState() {
@@ -469,6 +474,17 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
     _currentWeek = widget.group.currentWeek;
     _selectedWeek = widget.group.currentWeek;
     _loadAssignments();
+    _loadNotificationSchedule();
+  }
+
+  Future<void> _loadNotificationSchedule() async {
+    try {
+      final repo = ref.read(notificationScheduleRepositoryProvider);
+      final schedule = await repo.getSchedule(widget.groupId);
+      if (mounted) setState(() => _notifSchedule = schedule);
+    } catch (_) {
+      // No schedule set yet — ignore
+    }
   }
 
   Future<void> _loadAssignments() async {
@@ -480,13 +496,30 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
         _assignments = all;
         _loading = false;
       });
+      // Auto-schedule local notifications using the group's schedule.
+      _rescheduleNotifications(all);
     } catch (_) {
       setState(() => _loading = false);
     }
   }
 
-  Future<void> _autoSchedule() async {
-    // Find the next unscheduled chapter (sequential — continue from where we left off)
+  /// Re-schedule local reading reminders for [assignments].
+  /// Silently skips if no notification schedule has been configured.
+  Future<void> _rescheduleNotifications(List<Assignment> assignments) async {
+    final schedule = _notifSchedule;
+    if (schedule == null) return;
+    try {
+      await NotificationsService().scheduleGroupReadingNotifications(
+        assignments: assignments,
+        schedule: schedule,
+      );
+    } catch (_) {
+      // Notification permission may not be granted — fail silently.
+    }
+  }
+
+  void _openAutoScheduleSheet() async {
+    // Determine the next unscheduled chapter to pre-fill the start field.
     final allAssignments = await ref
         .read(assignmentsRepositoryProvider)
         .getGroupAssignments(widget.groupId);
@@ -494,40 +527,37 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
     int startChapter = 1;
     while (assignedChapters.contains(startChapter)) startChapter++;
 
-    try {
-      final result = await ref.read(assignmentsRepositoryProvider).autoSchedule(
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AutoScheduleSheet(
         groupId: widget.groupId,
-        startChapter: startChapter,
-        weeksAhead: 4,
-      );
-
-      if (!mounted) return;
-      _loadAssignments();
-
-      // If there are remainder chapters, show a dialog asking what to do
-      if (result.remainderChapters.isNotEmpty) {
-        _showRemainderDialog(result.remainderChapters);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${result.assignments.length} assignments scheduled across 4 weeks ✓'
-                  ' (chapters $startChapter–${startChapter + result.assignments.length - 1})',
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not schedule: $e')),
-        );
-      }
-    }
+        group: widget.group,
+        members: widget.members,
+        defaultStartChapter: startChapter,
+        currentWeek: _currentWeek,
+        onScheduled: () {
+          _loadAssignments();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Assignments created ✓'),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
+      ),
+    );
   }
 
+  // Legacy remainder dialog kept for use from other places.
   /// Shows a dialog informing the group lead about remainder chapters
   /// that couldn't be evenly distributed across members.
   void _showRemainderDialog(List<Map<String, dynamic>> remainders) {
@@ -617,6 +647,29 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
     }
   }
 
+  String _dayName(int offset) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days[offset.clamp(0, 6)];
+  }
+
+  void _openNotificationSettings() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _NotificationScheduleSheet(
+        groupId: widget.groupId,
+        existing: _notifSchedule,
+        onSaved: (saved) {
+          setState(() => _notifSchedule = saved);
+          _rescheduleNotifications(_assignments);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -662,7 +715,7 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
                       child: _ActionButton(
                         icon: Icons.auto_awesome_outlined,
                         label: 'Auto-Schedule',
-                        onTap: _autoSchedule,
+                        onTap: _openAutoScheduleSheet,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -676,6 +729,42 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                // Notification settings — group lead only
+                GestureDetector(
+                  onTap: _openNotificationSettings,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.saffron.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.saffron.withOpacity(0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.notifications_outlined, size: 18, color: AppColors.saffron),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _notifSchedule == null
+                                ? 'Set reading reminders for members'
+                                : 'Reminder: ${_dayName(_notifSchedule!.initialReminderDayOffset)} '
+                                  '${_notifSchedule!.initialReminderHour}:${_notifSchedule!.initialReminderMinute.toString().padLeft(2, "0")} '
+                                  '— deadline ${_dayName(_notifSchedule!.deadlineDayOffset)} '
+                                  '${_notifSchedule!.deadlineHour}:${_notifSchedule!.deadlineMinute.toString().padLeft(2, "0")}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.saffron,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.edit_outlined, size: 14, color: AppColors.saffron),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
@@ -685,7 +774,7 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
           child: _loading
               ? const Center(child: CircularProgressIndicator(color: AppColors.saffron))
               : _assignments.isEmpty
-                  ? _EmptySchedule(canAssign: widget.canAssign, onAutoSchedule: _autoSchedule)
+                  ? _EmptySchedule(canAssign: widget.canAssign, onAutoSchedule: _openAutoScheduleSheet)
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       itemCount: _assignments.length,
@@ -703,6 +792,11 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
                             await ref
                                 .read(assignmentsRepositoryProvider)
                                 .updateProgress(_assignments[index].id, status);
+                            // Cancel notifications once reading is completed.
+                            if (status == ReadingStatus.completed) {
+                              await NotificationsService()
+                                  .cancelGroupNotificationsForAssignment(_assignments[index].id);
+                            }
                             _loadAssignments();
                           },
                         );
@@ -713,6 +807,821 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
     );
   }
 }
+
+// ─── Notification Schedule Bottom Sheet ──────────────────────────────────────
+
+/// Bottom sheet that lets the group lead configure reading reminder timings.
+/// Displayed when the lead taps the notification settings row in the Schedule tab.
+class _NotificationScheduleSheet extends ConsumerStatefulWidget {
+  final String groupId;
+  final GroupNotificationSchedule? existing;
+  final void Function(GroupNotificationSchedule) onSaved;
+
+  const _NotificationScheduleSheet({
+    required this.groupId,
+    required this.existing,
+    required this.onSaved,
+  });
+
+  @override
+  ConsumerState<_NotificationScheduleSheet> createState() =>
+      _NotificationScheduleSheetState();
+}
+
+class _NotificationScheduleSheetState
+    extends ConsumerState<_NotificationScheduleSheet> {
+  // Reminder settings
+  int _reminderDayOffset = 0;   // Monday
+  int _reminderHour = 9;
+  int _reminderMinute = 0;
+
+  // Deadline settings
+  int _deadlineDayOffset = 6;   // Sunday
+  int _deadlineHour = 22;
+  int _deadlineMinute = 0;
+
+  bool _escalationEnabled = true;
+  bool _saving = false;
+
+  static const _dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    if (e != null) {
+      _reminderDayOffset = e.initialReminderDayOffset;
+      _reminderHour = e.initialReminderHour;
+      _reminderMinute = e.initialReminderMinute;
+      _deadlineDayOffset = e.deadlineDayOffset;
+      _deadlineHour = e.deadlineHour;
+      _deadlineMinute = e.deadlineMinute;
+      _escalationEnabled = e.escalationEnabled;
+    }
+  }
+
+  Future<void> _pickTime({
+    required int initialHour,
+    required int initialMinute,
+    required void Function(int hour, int minute) onPicked,
+  }) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: initialHour, minute: initialMinute),
+    );
+    if (picked != null) {
+      setState(() => onPicked(picked.hour, picked.minute));
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final repo = ref.read(notificationScheduleRepositoryProvider);
+      // Build a temporary object to call toJson(); id/createdBy/updatedAt
+      // are ignored by the API (server assigns them).
+      final draft = GroupNotificationSchedule(
+        id: widget.existing?.id ?? '',
+        groupId: widget.groupId,
+        initialReminderDayOffset: _reminderDayOffset,
+        initialReminderHour: _reminderHour,
+        initialReminderMinute: _reminderMinute,
+        deadlineDayOffset: _deadlineDayOffset,
+        deadlineHour: _deadlineHour,
+        deadlineMinute: _deadlineMinute,
+        escalationEnabled: _escalationEnabled,
+        createdBy: '',
+        updatedAt: DateTime.now(),
+      );
+      final saved = await repo.setSchedule(widget.groupId, draft);
+      if (!mounted) return;
+      Navigator.pop(context);
+      widget.onSaved(saved);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reading reminders saved ✓'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _sectionHeader(String text) => Padding(
+        padding: const EdgeInsets.only(top: 20, bottom: 8),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+            color: AppColors.saffron,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
+
+  Widget _dayDropdown(int value, void Function(int) onChanged) =>
+      DropdownButton<int>(
+        value: value,
+        underline: const SizedBox(),
+        items: List.generate(7, (i) => DropdownMenuItem(
+          value: i,
+          child: Text(_dayNames[i], style: const TextStyle(fontSize: 14)),
+        )),
+        onChanged: (v) { if (v != null) setState(() => onChanged(v)); },
+      );
+
+  Widget _timeChip(int hour, int minute, VoidCallback onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.saffron.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '${hour.toString().padLeft(2, "0")}:${minute.toString().padLeft(2, "0")}',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: AppColors.saffron,
+            ),
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle bar
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.lightGrey,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          const Text(
+            'Reading Reminder Settings',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.darkText),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'All group members will receive local notifications on their devices.',
+            style: TextStyle(fontSize: 12, color: AppColors.lightText),
+          ),
+
+          // ── Initial reminder ─────────────────────────────────────────────
+          _sectionHeader('INITIAL REMINDER (start of week)'),
+          Row(
+            children: [
+              const Text('Day: ', style: TextStyle(fontSize: 14)),
+              _dayDropdown(_reminderDayOffset, (v) => _reminderDayOffset = v),
+              const Spacer(),
+              const Text('Time: ', style: TextStyle(fontSize: 14)),
+              _timeChip(_reminderHour, _reminderMinute, () => _pickTime(
+                initialHour: _reminderHour,
+                initialMinute: _reminderMinute,
+                onPicked: (h, m) { _reminderHour = h; _reminderMinute = m; },
+              )),
+            ],
+          ),
+
+          // ── Deadline ─────────────────────────────────────────────────────
+          _sectionHeader('READING DEADLINE'),
+          Row(
+            children: [
+              const Text('Day: ', style: TextStyle(fontSize: 14)),
+              _dayDropdown(_deadlineDayOffset, (v) => _deadlineDayOffset = v),
+              const Spacer(),
+              const Text('Time: ', style: TextStyle(fontSize: 14)),
+              _timeChip(_deadlineHour, _deadlineMinute, () => _pickTime(
+                initialHour: _deadlineHour,
+                initialMinute: _deadlineMinute,
+                onPicked: (h, m) { _deadlineHour = h; _deadlineMinute = m; },
+              )),
+            ],
+          ),
+
+          // ── Escalation toggle ─────────────────────────────────────────────
+          _sectionHeader('ESCALATING REMINDERS'),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _escalationEnabled
+                      ? 'Frequency increases as deadline approaches (72h > 48h > 24h > 12h > 6h > 2h before)'
+                      : 'Only the initial reminder will be sent',
+                  style: const TextStyle(fontSize: 12, color: AppColors.mediumText),
+                ),
+              ),
+              Switch(
+                value: _escalationEnabled,
+                onChanged: (v) => setState(() => _escalationEnabled = v),
+                activeColor: AppColors.saffron,
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _saving ? null : _save,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.saffron,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _saving
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Save Reminder Settings', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Auto-Schedule Bottom Sheet ───────────────────────────────────────────────
+
+/// Bottom sheet where the group lead picks a schedule mode and optionally
+/// uses the Smart Suggestions flow to fill the grid from just 2 seed entries.
+class _AutoScheduleSheet extends ConsumerStatefulWidget {
+  final String groupId;
+  final Group group;
+  final List<GroupMember> members;
+  final int defaultStartChapter;
+  final int currentWeek;
+  final VoidCallback onScheduled;
+
+  const _AutoScheduleSheet({
+    required this.groupId,
+    required this.group,
+    required this.members,
+    required this.defaultStartChapter,
+    required this.currentWeek,
+    required this.onScheduled,
+  });
+
+  @override
+  ConsumerState<_AutoScheduleSheet> createState() => _AutoScheduleSheetState();
+}
+
+class _AutoScheduleSheetState extends ConsumerState<_AutoScheduleSheet> {
+  // ── Mode selection ────────────────────────────────────────────────────────
+  String _scheduleMode = 'independent';
+  String _remainderMode = 'manual';
+  int _weeksAhead = 4;
+  late int _startChapter;
+
+  // ── Smart suggestions flow ────────────────────────────────────────────────
+  bool _showSuggest = false;
+  late TextEditingController _hint0Start;
+  late TextEditingController _hint1Start;
+  ScheduleSuggestion? _suggestion;
+  bool _detecting = false;
+
+  // ── Submission ────────────────────────────────────────────────────────────
+  bool _scheduling = false;
+
+  static const _modeOptions = [
+    (value: 'independent',     label: 'Non-overlapping',    sub: 'Each member reads unique chapters; fastest coverage'),
+    (value: 'rotating_window', label: 'Rotating Window',    sub: 'Window slides W chapters/week; great for discussion'),
+    (value: 'dense_window',    label: 'Dense Sliding',      sub: 'Members spaced 1 chapter apart; maximum overlap'),
+    (value: 'synchronized',    label: 'Synchronized',       sub: 'All members read the same chapters together'),
+  ];
+
+  static const _remainderOptions = [
+    (value: 'manual',       label: 'Flag for manual review'),
+    (value: 'truncate',     label: 'Skip partial chapters'),
+    (value: 'extend_last',  label: 'Extend last member slot'),
+    (value: 'round_robin',  label: 'Round-robin extras to early members'),
+    (value: 'cycle',        label: 'Loop back to Ch.1 after Ch.47'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _startChapter = widget.defaultStartChapter;
+    _hint0Start = TextEditingController(text: '$_startChapter');
+    _hint1Start = TextEditingController(text: '${_startChapter + widget.group.chaptersPerWeek}');
+  }
+
+  @override
+  void dispose() {
+    _hint0Start.dispose();
+    _hint1Start.dispose();
+    super.dispose();
+  }
+
+  Future<void> _detectPattern() async {
+    final h0 = int.tryParse(_hint0Start.text.trim());
+    final h1 = int.tryParse(_hint1Start.text.trim());
+    if (h0 == null || h1 == null || h0 < 1 || h1 < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter valid chapter numbers for both members')),
+      );
+      return;
+    }
+    setState(() { _detecting = true; _suggestion = null; });
+    try {
+      final result = await ref.read(assignmentsRepositoryProvider).suggestSchedule(
+        groupId: widget.groupId,
+        weekNumber: widget.currentWeek,
+        hints: [(position: 0, chapterStart: h0), (position: 1, chapterStart: h1)],
+        weeksAhead: _weeksAhead,
+        remainderMode: _remainderMode,
+      );
+      setState(() {
+        _suggestion = result;
+        // Sync the detected mode to the mode picker
+        _scheduleMode = result.backendMode;
+        _startChapter = h0;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not get suggestions: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _detecting = false);
+    }
+  }
+
+  Future<void> _runAutoSchedule() async {
+    setState(() => _scheduling = true);
+    try {
+      await ref.read(assignmentsRepositoryProvider).autoSchedule(
+        groupId: widget.groupId,
+        startChapter: _startChapter,
+        weeksAhead: _weeksAhead,
+        scheduleMode: _scheduleMode,
+        remainderMode: _remainderMode,
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      widget.onScheduled();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Could not schedule: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _scheduling = false);
+    }
+  }
+
+  Widget _chip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.saffron : AppColors.cream,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? AppColors.saffron : AppColors.lightGrey,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : AppColors.darkText,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 6),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+            color: AppColors.saffron,
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final suggestion = _suggestion;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (_, scrollCtrl) => ListView(
+        controller: scrollCtrl,
+        padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottom),
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: AppColors.lightGrey,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const Text(
+            'Auto-Schedule Chapters',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.darkText),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${widget.members.length} members · ${widget.group.chaptersPerWeek} ch/member/week',
+            style: const TextStyle(fontSize: 12, color: AppColors.lightText),
+          ),
+
+          // ── Schedule mode ───────────────────────────────────────────────
+          _label('SCHEDULE MODE'),
+          ..._modeOptions.map((opt) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: GestureDetector(
+              onTap: () => setState(() {
+                _scheduleMode = opt.value;
+                _suggestion = null;
+              }),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _scheduleMode == opt.value
+                      ? AppColors.saffron.withAlpha(25)
+                      : AppColors.cream,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _scheduleMode == opt.value
+                        ? AppColors.saffron
+                        : AppColors.lightGrey,
+                    width: _scheduleMode == opt.value ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _scheduleMode == opt.value
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      size: 18,
+                      color: _scheduleMode == opt.value
+                          ? AppColors.saffron
+                          : AppColors.lightText,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(opt.label,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          Text(opt.sub,
+                              style: const TextStyle(fontSize: 11, color: AppColors.lightText)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )),
+
+          // ── Start chapter + weeks ahead ─────────────────────────────────
+          _label('STARTING FROM'),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Chapter', style: TextStyle(fontSize: 12, color: AppColors.mediumText)),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, size: 20),
+                          onPressed: _startChapter > 1
+                              ? () => setState(() { _startChapter--; _suggestion = null; })
+                              : null,
+                          color: AppColors.saffron,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$_startChapter',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline, size: 20),
+                          onPressed: _startChapter < 47
+                              ? () => setState(() { _startChapter++; _suggestion = null; })
+                              : null,
+                          color: AppColors.saffron,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Weeks ahead', style: TextStyle(fontSize: 12, color: AppColors.mediumText)),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, size: 20),
+                          onPressed: _weeksAhead > 1
+                              ? () => setState(() { _weeksAhead--; _suggestion = null; })
+                              : null,
+                          color: AppColors.saffron,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$_weeksAhead',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline, size: 20),
+                          onPressed: _weeksAhead < 12
+                              ? () => setState(() { _weeksAhead++; _suggestion = null; })
+                              : null,
+                          color: AppColors.saffron,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // ── Remainder mode ───────────────────────────────────────────────
+          _label('WHEN CHAPTERS RUN OUT'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: _remainderOptions.map((opt) => _chip(
+              opt.label,
+              _remainderMode == opt.value,
+              () => setState(() { _remainderMode = opt.value; _suggestion = null; }),
+            )).toList(),
+          ),
+
+          // ── Smart Suggestions ────────────────────────────────────────────
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: () => setState(() => _showSuggest = !_showSuggest),
+            child: Row(
+              children: [
+                Icon(
+                  _showSuggest ? Icons.expand_less : Icons.expand_more,
+                  color: AppColors.saffron, size: 20,
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Smart Suggestions — fill first 2 members, detect pattern',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.saffron),
+                ),
+              ],
+            ),
+          ),
+
+          if (_showSuggest) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.members.isNotEmpty ? widget.members[0].name : 'Member 1',
+                        style: const TextStyle(fontSize: 12, color: AppColors.mediumText),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      TextField(
+                        controller: _hint0Start,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Ch. start',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (_) => setState(() => _suggestion = null),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.members.length > 1 ? widget.members[1].name : 'Member 2',
+                        style: const TextStyle(fontSize: 12, color: AppColors.mediumText),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      TextField(
+                        controller: _hint1Start,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Ch. start',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (_) => setState(() => _suggestion = null),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: FilledButton(
+                    onPressed: _detecting ? null : _detectPattern,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.saffron,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                    child: _detecting
+                        ? const SizedBox(width: 16, height: 16,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('Detect', style: TextStyle(fontSize: 13)),
+                  ),
+                ),
+              ],
+            ),
+
+            // ── Suggestion preview ─────────────────────────────────────────
+            if (suggestion != null) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Pattern detected: ${suggestion.modeLabel}\n'
+                        'Step = ${suggestion.detectedStep} chapter(s) per member',
+                        style: const TextStyle(fontSize: 12, color: Colors.green),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Grid: weeks as columns, members as rows
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header row
+                    Row(
+                      children: [
+                        const SizedBox(width: 90),
+                        ...suggestion.weeks.map((w) => Container(
+                          width: 72,
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(
+                            'Wk $w',
+                            style: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w700,
+                              color: AppColors.saffron,
+                            ),
+                          ),
+                        )),
+                      ],
+                    ),
+                    // Member rows
+                    ...List.generate(widget.members.length, (pos) {
+                      final name = pos < widget.members.length
+                          ? widget.members[pos].name
+                          : 'M${pos + 1}';
+                      return Row(
+                        children: [
+                          SizedBox(
+                            width: 90,
+                            child: Text(
+                              name,
+                              style: const TextStyle(fontSize: 11, color: AppColors.mediumText),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          ...suggestion.weeks.map((w) {
+                            final slots = suggestion.slotsForWeek(w);
+                            final slot = slots.where((s) => s.position == pos).firstOrNull;
+                            final label = slot?.label ?? '—';
+                            final isManual = slot?.isManual ?? false;
+                            return Container(
+                              width: 72,
+                              alignment: Alignment.center,
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              child: Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isManual ? AppColors.deepOrange : AppColors.darkText,
+                                  fontWeight: isManual ? FontWeight.w700 : FontWeight.normal,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            );
+                          }),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              if (suggestion.remainderChapters.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Remainder chapters: ${suggestion.remainderChapters.join(", ")}',
+                  style: const TextStyle(fontSize: 11, color: AppColors.lightText),
+                ),
+              ],
+            ],
+          ],
+
+          // ── Action buttons ───────────────────────────────────────────────
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _scheduling ? null : _runAutoSchedule,
+              icon: _scheduling
+                  ? const SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.auto_awesome_outlined),
+              label: Text(
+                suggestion != null
+                    ? 'Confirm & Create ${suggestion.suggestions.length} Assignments'
+                    : 'Auto-Generate All Assignments',
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.saffron,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _WeekArrow extends StatelessWidget {
   final IconData icon;

@@ -37,6 +37,10 @@ class AppConstants {
   // Progress endpoints
   static const String progressEndpoint = '/progress';
 
+  // Notification schedule endpoint (per-group)
+  // Append '/{groupId}/notification-schedule' at call site.
+  static const String groupNotificationScheduleEndpoint = '/groups';
+
   // Storage keys
   static const String accessTokenKey = 'access_token';
   static const String refreshTokenKey = 'refresh_token';

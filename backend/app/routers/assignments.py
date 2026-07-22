@@ -9,7 +9,14 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..models import User, Group, GroupMember, Chapter, ReadingAssignment, ReadingProgress
-from ..schemas import CreateAssignmentRequest, AutoScheduleRequest, AssignmentResponse
+from ..schemas import (
+    CreateAssignmentRequest,
+    AutoScheduleRequest,
+    AssignmentResponse,
+    SuggestScheduleRequest,
+    SuggestScheduleResponse,
+    SuggestedSlot,
+)
 from ..middleware.auth import get_current_user
 
 router = APIRouter()
@@ -123,6 +130,59 @@ def create_assignment(
     return _build_assignment_response(assignment, db)
 
 
+# ─── Schedule mode helpers ───────────────────────────────────────────────────
+
+def _member_chapter_start(
+    mode: str,
+    week_offset: int,
+    member_index: int,
+    start_chapter: int,
+    chapters_per_week: int,
+    member_count: int,
+) -> int:
+    """Return the first chapter number for a given member in a given week.
+
+    week_offset is 0-based (0 = first scheduled week).
+    member_index is 0-based in join order.
+    """
+    W = chapters_per_week
+    K = week_offset  # 0-based
+    i = member_index  # 0-based
+    s = start_chapter
+
+    if mode == "independent":
+        # No overlap between weeks.  Total N*W chapters consumed each week.
+        return s + K * member_count * W + i * W
+    elif mode == "rotating_window":
+        # Window slides by W each week.  Intra-week gap between members = W.
+        # Formula: s + (K + i) * W
+        return s + (K + i) * W
+    elif mode == "dense_window":
+        # Window slides by W each week.  Intra-week gap between members = 1.
+        # Formula: s + K * W + i
+        return s + K * W + i
+    elif mode == "synchronized":
+        # All members read the same chapters every week.
+        return s + K * W
+    else:
+        return s + K * member_count * W + i * W  # fallback = independent
+
+
+def _apply_remainder(
+    chapter_number: int,
+    remainder_mode: str,
+    total_chapters: int,
+    last_valid_chapter: int,
+) -> int | None:
+    """Adjust a chapter number that exceeds the book length, or return None to skip."""
+    if chapter_number <= total_chapters:
+        return chapter_number
+    if remainder_mode == "cycle":
+        return ((chapter_number - 1) % total_chapters) + 1
+    # truncate / manual / extend_last / round_robin → caller handles the extra
+    return None
+
+
 @router.post("/auto-schedule", status_code=status.HTTP_201_CREATED)
 def auto_schedule(
     request: AutoScheduleRequest,
@@ -131,21 +191,20 @@ def auto_schedule(
 ):
     """Auto-schedule upcoming chapters for all group members week-by-week.
 
-    Each week the group reads `chapters_per_week` chapters distributed
-    in round-robin order across members (each member gets exactly one
-    chapter per turn; the pool cycles continuously).
+    schedule_mode controls the intra-week and inter-week chapter distribution:
+      independent    — unique non-overlapping slices (default / existing behaviour)
+      rotating_window — window slides W chapters per week; adjacent members share
+                       consecutive slices
+      dense_window   — window slides W chapters per week; members spaced 1 chapter
+                       apart, maximising overlap for discussion chains
+      synchronized   — all members read the same chapters each week
 
-    If chapters_per_week is not evenly divisible by member count, the
-    remainder chapters in the final partial cycle are returned in
-    `remainder_chapters` so the group lead can decide what to do with them
-    (assign them to specific members manually, or skip).
-
-    Returns:
-        {
-          "assignments": [...],         # all created assignments
-          "remainder_chapters": [...]   # chapter numbers left over each week
-                                        # when chapters_per_week % member_count != 0
-        }
+    remainder_mode controls what happens when chapters run past the book end:
+      manual         — flag for group lead to assign manually (default)
+      truncate       — member gets fewer chapters; remainder reported
+      extend_last    — last member absorbs the extra chapter(s)
+      round_robin    — extras looped back to members 0, 1, 2 …
+      cycle          — chapter wraps around to Ch.1 after the last chapter
     """
     membership = (
         db.query(GroupMember)
@@ -174,55 +233,72 @@ def auto_schedule(
     if not members:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group has no members")
 
+    # Count available chapters so we know the book length
+    total_chapters = db.query(Chapter).count() or TOTAL_CHAPTERS
+
     chapters_per_week = group.chapters_per_week or 2
     member_count = len(members)
+    mode = request.schedule_mode
+    remainder_mode = request.remainder_mode
     now = datetime.utcnow()
-    created = []
+    created: list = []
     remainder_chapters: list[dict] = []
-
-    # Each member gets exactly `chapters_per_week` consecutive chapters per week.
-    # Members are assigned in join-order blocks within each week.
-    #
-    # Example — 2 members, 2 ch/week, start=Ch.1:
-    #   Week 1:  Ram   → Ch.1, Ch.2
-    #            Arjun → Ch.3, Ch.4
-    #   Week 2:  Ram   → Ch.5, Ch.6
-    #            Arjun → Ch.7, Ch.8
-    #   Week 3:  Ram   → Ch.9, Ch.10
-    #            ...
-    #
-    # Total chapters consumed per week = chapters_per_week × member_count.
-    # If any chapter number exceeds the book length, it is skipped and
-    # reported as a remainder so the group lead can decide what to do.
-
-    chapters_per_week_total = chapters_per_week * member_count  # chapters consumed each week
 
     for week_offset in range(request.weeks_ahead):
         week_number = group.current_week + week_offset
         monday = _monday_of_week(now, week_offset)
+        last_member_idx = member_count - 1
 
-        week_start = request.start_chapter + week_offset * chapters_per_week_total
+        # For extend_last: track if we already extended this week
+        extended_this_week = False
 
         for member_index, member in enumerate(members):
-            member_start = week_start + member_index * chapters_per_week
+            member_start = _member_chapter_start(
+                mode, week_offset, member_index,
+                request.start_chapter, chapters_per_week, member_count,
+            )
 
-            for slot in range(chapters_per_week):
+            # Determine how many chapters this member reads this slot.
+            # Default = chapters_per_week.  extend_last adds one extra to the
+            # last member if the previous slot ended short.
+            slots = chapters_per_week
+
+            for slot in range(slots):
                 chapter_number = member_start + slot
-                chapter = db.query(Chapter).filter(Chapter.number == chapter_number).first()
+                resolved = _apply_remainder(chapter_number, remainder_mode, total_chapters, total_chapters)
+
+                if resolved is None:
+                    # Chapter is past end of book and mode is not cycle
+                    if remainder_mode == "extend_last" and member_index == last_member_idx and not extended_this_week:
+                        # Already handled by naturalntruncation; nothing to extend
+                        pass
+                    elif remainder_mode in ("manual", "truncate", "extend_last", "round_robin"):
+                        remainder_chapters.append({
+                            "week_number": week_number,
+                            "chapter_number": chapter_number,
+                            "user_id": member.user_id,
+                        })
+                    continue
+
+                # round_robin: give extras back to early members
+                if remainder_mode == "round_robin" and chapter_number > total_chapters:
+                    resolved = ((chapter_number - 1) % total_chapters) + 1
+
+                chapter = db.query(Chapter).filter(Chapter.number == resolved).first()
                 if not chapter:
-                    # Chapter doesn't exist (past end of book) — flag as remainder
                     remainder_chapters.append({
                         "week_number": week_number,
-                        "chapter_number": chapter_number,
-                        "chapter_title": None,
-                        "member_name": member.user_id,  # group lead can re-assign
+                        "chapter_number": resolved,
+                        "user_id": member.user_id,
                     })
                     continue
 
+                # Skip if already assigned to anyone in this group for this week
                 existing = (
                     db.query(ReadingAssignment)
                     .filter(
                         ReadingAssignment.group_id == request.group_id,
+                        ReadingAssignment.user_id == member.user_id,
                         ReadingAssignment.chapter_id == chapter.id,
                         ReadingAssignment.week_number == week_number,
                     )
@@ -253,6 +329,148 @@ def auto_schedule(
         "assignments": [_build_assignment_response(a, db) for a in created],
         "remainder_chapters": remainder_chapters,
     }
+
+
+# ─── Smart Suggest Endpoint ───────────────────────────────────────────────────
+
+@router.post("/suggest", response_model=SuggestScheduleResponse)
+def suggest_schedule(
+    request: SuggestScheduleRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Detect the group lead's chapter-assignment pattern from 2+ manual hints
+    and return a full suggested grid for all members × requested weeks ahead.
+
+    No assignments are written to the database — the lead reviews the preview
+    and can then call /auto-schedule with the detected mode to confirm.
+
+    Pattern detection (from hints sorted by position):
+      step = hints[1].chapter_start − hints[0].chapter_start
+      W    = group.chapters_per_week
+
+      step == W  → "non_overlapping" (independent / rotating-window style)
+      step == 1  → "dense"
+      other      → "custom" (arbitrary step; extrapolated linearly)
+
+    For following weeks every member advances W chapters from their position
+    in the first hint week, matching both rotating_window and dense_window
+    inter-week behaviour.
+    """
+    membership = (
+        db.query(GroupMember)
+        .filter(
+            GroupMember.group_id == request.group_id,
+            GroupMember.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not membership or not _can_assign(membership.role):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only group leads and admins can use smart suggestions",
+        )
+
+    group = db.query(Group).filter(Group.id == request.group_id).first()
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+
+    members = (
+        db.query(GroupMember)
+        .filter(GroupMember.group_id == request.group_id)
+        .order_by(GroupMember.joined_at)
+        .all()
+    )
+    member_count = len(members)
+    if member_count == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group has no members")
+
+    W = group.chapters_per_week or 2
+    total_chapters = db.query(Chapter).count() or TOTAL_CHAPTERS
+
+    # ── Detect pattern ──────────────────────────────────────────────────────
+    hints_sorted = sorted(request.hints, key=lambda h: h.position)
+
+    if len(hints_sorted) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide at least 2 hints (positions 0 and 1) to detect a pattern",
+        )
+
+    step = hints_sorted[1].chapter_start - hints_sorted[0].chapter_start
+
+    if step == W:
+        detected_mode = "non_overlapping"
+    elif step == 1:
+        detected_mode = "dense"
+    else:
+        detected_mode = "custom"
+
+    # Base chapter for position 0 in the hint week
+    base_chapter = hints_sorted[0].chapter_start
+
+    # Build a position → chapter_start lookup for manually-provided hints
+    manual_positions = {h.position: h.chapter_start for h in hints_sorted}
+
+    # ── Build suggestion grid ────────────────────────────────────────────────
+    suggestions: list[SuggestedSlot] = []
+    remainder_chapters: list[int] = []
+    remainder_mode = request.remainder_mode
+
+    # Week 0 = request.week_number, Week 1 = request.week_number + 1, …
+    for week_idx in range(1 + request.weeks_ahead):
+        week_number = request.week_number + week_idx
+        week_advance = week_idx * W   # how much the window moves each week
+
+        for pos, member in enumerate(members):
+            # chapter_start for this member in this week
+            if pos in manual_positions and week_idx == 0:
+                ch_start = manual_positions[pos]
+                is_manual = True
+            else:
+                ch_start = base_chapter + week_advance + pos * step
+                is_manual = False
+
+            # Build list of chapter numbers for this slot
+            chapter_nums: list[int] = []
+            for slot in range(W):
+                ch = ch_start + slot
+
+                if ch > total_chapters:
+                    if remainder_mode == "cycle":
+                        ch = ((ch - 1) % total_chapters) + 1
+                    elif remainder_mode == "extend_last" and pos == member_count - 1:
+                        # Allow extend — chapter included as-is (lead is aware)
+                        pass
+                    else:
+                        remainder_chapters.append(ch)
+                        continue   # skip this slot in the suggestion
+
+                chapter_nums.append(ch)
+
+            if not chapter_nums:
+                continue
+
+            # Resolve member user info
+            user = db.query(User).filter(User.id == member.user_id).first()
+            user_name = user.name if user else member.user_id
+
+            suggestions.append(SuggestedSlot(
+                week_number=week_number,
+                position=pos,
+                user_id=member.user_id,
+                user_name=user_name,
+                chapter_numbers=chapter_nums,
+                is_manual=is_manual,
+            ))
+
+    return SuggestScheduleResponse(
+        detected_mode=detected_mode,
+        detected_step=step,
+        chapters_per_member=W,
+        suggestions=suggestions,
+        remainder_chapters=sorted(set(remainder_chapters)),
+    )
 
 
 @router.post("/advance-week/{group_id}", response_model=dict)
