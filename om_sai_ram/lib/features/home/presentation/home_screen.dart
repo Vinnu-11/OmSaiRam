@@ -273,11 +273,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Expanded(
                   child: _QuickActionCard(
                     icon: Icons.group_add_outlined,
-                    label: tr.createGroup,
+                    label: tr.joinGroup,
                     color: AppColors.saffron,
                     onTap: () {
                       if (isLoggedIn) {
-                        context.go('/groups/create');
+                        context.go(AppRoutes.groups);
                       } else {
                         context.go(AppRoutes.login);
                       }

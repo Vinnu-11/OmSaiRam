@@ -114,6 +114,22 @@ class _ChapterTile extends ConsumerWidget {
     final isDownloading = isThisTrack && audioState.status == ChapterAudioStatus.downloading;
     final isPlaying = isThisTrack && audioState.status == ChapterAudioStatus.playing;
     final isActive = isThisTrack && audioState.isActive;
+    final isError = isThisTrack && audioState.status == ChapterAudioStatus.error;
+
+    // Show error snackbar when playback fails
+    if (isError && audioState.errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Audio error: ${audioState.errorMessage}'),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      });
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

@@ -93,6 +93,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       body: _buildBody(groupsState, tr),
     );
   }

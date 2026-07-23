@@ -1,6 +1,7 @@
 // Om Sai Ram
 // Language state — app UI language and reader content language.
 
+import 'dart:ui' as ui;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,28 +10,36 @@ const _kReaderLangKey = 'reader_language';
 
 /// Supported languages.
 enum AppLanguage {
-  english('en', 'English'),
-  marathi('mr', 'मराठी'),
-  telugu('te', 'తెలుగు'),
-  hindi('hi', 'हिंदी'),
-  tamil('ta', 'தமிழ்'),
-  urdu('ur', 'اردو'),
-  bengali('bn', 'বাংলা'),
-  sindhi('sd', 'سنڌي'),
-  spanish('es', 'Español'),
-  gujarati('gu', 'ગુજરાતી'),
-  malayalam('ml', 'മലയാളം'),
-  oriya('or', 'ଓଡ଼ିଆ'),
-  konkani('kok', 'कोंकणी'),
-  nepali('ne', 'नेपाली'),
-  punjabi('pa', 'ਪੰਜਾਬੀ'),
-  kannada('kn', 'ಕನ್ನಡ'),
-  deutsch('de', 'Deutsch'),
-  french('fr', 'Français');
+  english('en', 'English', 'English'),
+  marathi('mr', 'मराठी', 'Marathi'),
+  telugu('te', 'తెలుగు', 'Telugu'),
+  hindi('hi', 'हिंदी', 'Hindi'),
+  tamil('ta', 'தமிழ்', 'Tamil'),
+  urdu('ur', 'اردو', 'Urdu'),
+  bengali('bn', 'বাংলা', 'Bengali'),
+  sindhi('sd', 'سنڌي', 'Sindhi'),
+  spanish('es', 'Español', 'Spanish'),
+  gujarati('gu', 'ગુજરાતી', 'Gujarati'),
+  malayalam('ml', 'മലയാളം', 'Malayalam'),
+  oriya('or', 'ଓଡ଼ିଆ', 'Odia'),
+  konkani('kok', 'कोंकणी', 'Konkani'),
+  nepali('ne', 'नेपाली', 'Nepali'),
+  punjabi('pa', 'ਪੰਜਾਬੀ', 'Punjabi'),
+  kannada('kn', 'ಕನ್ನಡ', 'Kannada'),
+  deutsch('de', 'Deutsch', 'German'),
+  french('fr', 'Français', 'French');
 
-  const AppLanguage(this.code, this.label);
+  const AppLanguage(this.code, this.label, this.englishLabel);
   final String code;
   final String label;
+  final String englishLabel;
+
+  /// Languages temporarily disabled due to unusable OCR content.
+  static const Set<AppLanguage> _disabled = {urdu, sindhi};
+
+  /// Languages available for selection (excludes disabled ones).
+  static List<AppLanguage> get available =>
+      values.where((l) => !_disabled.contains(l)).toList();
 
   static AppLanguage fromCode(String code) =>
       values.firstWhere((l) => l.code == code, orElse: () => english);
@@ -61,7 +70,7 @@ class LanguageNotifier extends StateNotifier<LanguageState> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final appCode = prefs.getString(_kAppLangKey) ?? 'en';
+    final appCode = prefs.getString(_kAppLangKey) ?? _deviceLanguageCode();
     final readerCode = prefs.getString(_kReaderLangKey) ?? appCode;
     state = LanguageState(
       appLanguage: AppLanguage.fromCode(appCode),
@@ -84,6 +93,15 @@ class LanguageNotifier extends StateNotifier<LanguageState> {
     await prefs.setString(_kReaderLangKey, lang.code);
     state = state.copyWith(readerLanguage: lang);
   }
+}
+
+/// Returns the device locale code if it matches a supported (available) language,
+/// otherwise falls back to 'en'.
+String _deviceLanguageCode() {
+  final locale = ui.PlatformDispatcher.instance.locale;
+  final code = locale.languageCode;
+  final match = AppLanguage.available.where((l) => l.code == code);
+  return match.isNotEmpty ? code : 'en';
 }
 
 final languageProvider =

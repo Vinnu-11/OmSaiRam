@@ -161,16 +161,6 @@ class _AppDrawer extends ConsumerWidget {
             ),
           ),
 
-          // Daily Programs
-          _DrawerTile(
-            icon: Icons.schedule_rounded,
-            label: tr.dailyProgramme,
-            onTap: () {
-              Navigator.pop(context);
-              context.go(AppRoutes.dailyProgramme);
-            },
-          ),
-
           // Upcoming Festivals
           _DrawerTile(
             icon: Icons.celebration_rounded,

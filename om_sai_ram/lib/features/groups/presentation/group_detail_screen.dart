@@ -1112,6 +1112,46 @@ class _AutoScheduleSheetState extends ConsumerState<_AutoScheduleSheet> {
     (value: 'synchronized',    label: 'Synchronized',       sub: 'All members read the same chapters together'),
   ];
 
+  /// Returns a short example string for each schedule mode.
+  /// Uses the group's chaptersPerWeek (W) and member count.
+  String _modeExample(String mode) {
+    final w = widget.group.chaptersPerWeek;
+    final m = widget.members.length;
+    final mLabel = m > 0 ? m : 3; // fallback for display
+    switch (mode) {
+      case 'independent':
+        // Members read non-overlapping slices.
+        // Week 1: M1→1-W, M2→(W+1)-(2W), M3→(2W+1)-(3W)
+        final slices = List.generate(
+          mLabel > 3 ? 3 : mLabel,
+          (i) => 'M${i + 1}: Ch.${i * w + 1}–${(i + 1) * w}',
+        );
+        return 'Wk 1: ${slices.join(', ')}${mLabel > 3 ? ' …' : ''}';
+      case 'rotating_window':
+        // Window slides W each week; intra-week gap = W.
+        final slices = List.generate(
+          mLabel > 3 ? 3 : mLabel,
+          (i) => 'M${i + 1}: Ch.${i * w + 1}–${(i + 1) * w}',
+        );
+        final wk2 = List.generate(
+          mLabel > 3 ? 3 : mLabel,
+          (i) => 'M${i + 1}: Ch.${(1 + i) * w + 1}–${(2 + i) * w}',
+        );
+        return 'Wk 1: ${slices.join(', ')}\nWk 2: ${wk2.join(', ')}';
+      case 'dense_window':
+        // Members spaced 1 chapter apart.
+        final slices = List.generate(
+          mLabel > 3 ? 3 : mLabel,
+          (i) => 'M${i + 1}: Ch.${i + 1}–${i + w}',
+        );
+        return 'Wk 1: ${slices.join(', ')}${mLabel > 3 ? ' …' : ''}\nHigh overlap for richer discussion';
+      case 'synchronized':
+        return 'Wk 1: Everyone reads Ch.1–$w\nWk 2: Everyone reads Ch.${w + 1}–${w * 2}';
+      default:
+        return '';
+    }
+  }
+
   static const _remainderOptions = [
     (value: 'manual',       label: 'Flag for manual review'),
     (value: 'truncate',     label: 'Skip partial chapters'),
@@ -1267,66 +1307,97 @@ class _AutoScheduleSheetState extends ConsumerState<_AutoScheduleSheet> {
 
           // ── Schedule mode ───────────────────────────────────────────────
           _label('SCHEDULE MODE'),
-          ..._modeOptions.map((opt) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: GestureDetector(
-              onTap: () => setState(() {
-                _scheduleMode = opt.value;
-                _suggestion = null;
-              }),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _scheduleMode == opt.value
-                      ? AppColors.saffron.withAlpha(25)
-                      : AppColors.cream,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
+          ..._modeOptions.map((opt) {
+            final example = _modeExample(opt.value);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: GestureDetector(
+                onTap: () => setState(() {
+                  _scheduleMode = opt.value;
+                  _suggestion = null;
+                }),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
                     color: _scheduleMode == opt.value
-                        ? AppColors.saffron
-                        : AppColors.lightGrey,
-                    width: _scheduleMode == opt.value ? 1.5 : 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _scheduleMode == opt.value
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                      size: 18,
+                        ? AppColors.saffron.withAlpha(25)
+                        : AppColors.cream,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
                       color: _scheduleMode == opt.value
                           ? AppColors.saffron
-                          : AppColors.lightText,
+                          : AppColors.lightGrey,
+                      width: _scheduleMode == opt.value ? 1.5 : 1,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(opt.label,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                          Text(opt.sub,
-                              style: const TextStyle(fontSize: 11, color: AppColors.lightText)),
-                        ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          _scheduleMode == opt.value
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          size: 18,
+                          color: _scheduleMode == opt.value
+                              ? AppColors.saffron
+                              : AppColors.lightText,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(opt.label,
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                            Text(opt.sub,
+                                style: const TextStyle(fontSize: 11, color: AppColors.lightText)),
+                            if (example.isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _scheduleMode == opt.value
+                                      ? AppColors.saffron.withAlpha(18)
+                                      : AppColors.lightGrey.withAlpha(60),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  example,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontFamily: 'monospace',
+                                    height: 1.5,
+                                    color: _scheduleMode == opt.value
+                                        ? AppColors.saffron
+                                        : AppColors.mediumText,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          )),
+            );
+          }),
 
           // ── Start chapter + weeks ahead ─────────────────────────────────
-          _label('STARTING FROM'),
+          _label('SCHEDULE RANGE'),
           Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Chapter', style: TextStyle(fontSize: 12, color: AppColors.mediumText)),
+                    const Text('Start chapter', style: TextStyle(fontSize: 12, color: AppColors.mediumText)),
                     Row(
                       children: [
                         IconButton(

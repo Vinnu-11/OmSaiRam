@@ -27,7 +27,7 @@ class OmSaiRamApp extends ConsumerWidget {
       themeMode: themeMode,
       routerConfig: router,
       locale: Locale(langCode),
-      supportedLocales: AppLanguage.values.map((l) => Locale(l.code)).toList(),
+      supportedLocales: AppLanguage.available.map((l) => Locale(l.code)).toList(),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

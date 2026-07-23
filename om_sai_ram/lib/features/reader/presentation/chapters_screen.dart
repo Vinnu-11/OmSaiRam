@@ -331,13 +331,47 @@ class _ReaderLanguageToggle extends ConsumerWidget {
   }
 }
 
-class _ReaderLanguagePicker extends ConsumerWidget {
+class _ReaderLanguagePicker extends ConsumerStatefulWidget {
   final AppLanguage current;
 
   const _ReaderLanguagePicker({required this.current});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ReaderLanguagePicker> createState() =>
+      _ReaderLanguagePickerState();
+}
+
+class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() => _query = _searchController.text.toLowerCase());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<AppLanguage> get _filtered {
+    if (_query.isEmpty) return AppLanguage.available;
+    return AppLanguage.available.where((l) {
+      return l.label.toLowerCase().contains(_query) ||
+          l.englishLabel.toLowerCase().contains(_query) ||
+          l.code.toLowerCase().contains(_query);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appLang = ref.watch(languageProvider).appLanguage;
+
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.6,
@@ -346,8 +380,9 @@ class _ReaderLanguagePicker extends ConsumerWidget {
       builder: (context, scrollController) {
         return Column(
           children: [
+            // Header
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -374,13 +409,41 @@ class _ReaderLanguagePicker extends ConsumerWidget {
                 ],
               ),
             ),
+
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search language…',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _query.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () => _searchController.clear(),
+                        )
+                      : null,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  isDense: true,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Language list
             Expanded(
-              child: ListView(
+              child: ListView.builder(
                 controller: scrollController,
-                padding:
-                    const EdgeInsets.fromLTRB(24, 4, 24, 32),
-                children: AppLanguage.values.map((lang) {
-                  final selected = current == lang;
+                padding: const EdgeInsets.fromLTRB(24, 4, 24, 32),
+                itemCount: _filtered.length,
+                itemBuilder: (context, index) {
+                  final lang = _filtered[index];
+                  final selected = widget.current == lang;
+                  // Show the English name in parentheses when it differs from label
+                  final showEnglish = lang.label != lang.englishLabel;
+
                   return GestureDetector(
                     onTap: () async {
                       await ref
@@ -410,14 +473,32 @@ class _ReaderLanguagePicker extends ConsumerWidget {
                       child: Row(
                         children: [
                           Expanded(
-                            child: Text(
-                              lang.label,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                                color: selected
-                                    ? AppColors.saffron
-                                    : AppColors.darkText,
+                            child: RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: lang.label,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                      color: selected
+                                          ? AppColors.saffron
+                                          : AppColors.darkText,
+                                    ),
+                                  ),
+                                  if (showEnglish)
+                                    TextSpan(
+                                      text: '  (${lang.englishLabel})',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w400,
+                                        fontSize: 13,
+                                        color: selected
+                                            ? AppColors.saffron
+                                                .withOpacity(0.7)
+                                            : AppColors.lightText,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ),
@@ -428,7 +509,7 @@ class _ReaderLanguagePicker extends ConsumerWidget {
                       ),
                     ),
                   );
-                }).toList(),
+                },
               ),
             ),
           ],

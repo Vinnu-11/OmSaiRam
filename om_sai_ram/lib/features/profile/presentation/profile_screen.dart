@@ -419,7 +419,7 @@ class _LanguageSettingsSheetState
                           ),
                     ),
                     const SizedBox(height: 10),
-                    ...AppLanguage.values.map((lang) => Padding(
+                    ...AppLanguage.available.map((lang) => Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: _langRow(
                             lang: lang,
@@ -447,7 +447,7 @@ class _LanguageSettingsSheetState
                           TextStyle(fontSize: 12, color: AppColors.lightText),
                     ),
                     const SizedBox(height: 10),
-                    ...AppLanguage.values.map((lang) => Padding(
+                    ...AppLanguage.available.map((lang) => Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: _langRow(
                             lang: lang,
@@ -509,12 +509,29 @@ class _LanguageSettingsSheetState
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                lang.label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                  color: selected ? AppColors.saffron : AppColors.darkText,
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: lang.label,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                        color: selected ? AppColors.saffron : AppColors.darkText,
+                      ),
+                    ),
+                    if (lang.label != lang.englishLabel)
+                      TextSpan(
+                        text: '  (${lang.englishLabel})',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w400,
+                          fontSize: 13,
+                          color: selected
+                              ? AppColors.saffron.withOpacity(0.7)
+                              : AppColors.lightText,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),

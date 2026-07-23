@@ -1,10 +1,11 @@
 // Om Sai Ram
-// Aarti screen — daily aartis with listen/download buttons.
+// Aarti screen — daily aartis with in-app playback.
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../data/audio_data.dart';
+import '../providers/chapter_audio_provider.dart';
 
 class AartiScreen extends StatefulWidget {
   const AartiScreen({super.key});
@@ -140,25 +141,20 @@ class _AartiSection extends StatelessWidget {
   }
 }
 
-class _TrackTile extends StatelessWidget {
+class _TrackTile extends ConsumerWidget {
   final AudioTrack track;
   const _TrackTile({required this.track});
 
-  Future<void> _open(BuildContext context) async {
-    final uri = Uri.parse(track.downloadUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open audio')),
-        );
-      }
-    }
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final audioState = ref.watch(chapterAudioProvider);
+    final isThisTrack = audioState.track?.fileName == track.fileName;
+    final isDownloading =
+        isThisTrack && audioState.status == ChapterAudioStatus.downloading;
+    final isPlaying =
+        isThisTrack && audioState.status == ChapterAudioStatus.playing;
+    final isActive = isThisTrack && audioState.isActive;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       child: Row(
@@ -167,38 +163,57 @@ class _TrackTile extends StatelessWidget {
           Expanded(
             child: Text(
               track.title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
-                color: AppColors.darkText,
-                fontWeight: FontWeight.w500,
+                color: isActive ? AppColors.saffron : AppColors.darkText,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
               ),
             ),
           ),
           const SizedBox(width: 10),
-          // Download / listen button — big, easy to press
+          // Play / Pause / Loading button
           GestureDetector(
-            onTap: () => _open(context),
+            onTap: () =>
+                ref.read(chapterAudioProvider.notifier).toggleAudio(track),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: AppColors.saffron,
+                color: isActive
+                    ? AppColors.saffron
+                    : AppColors.saffron.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.download_rounded, color: Colors.white, size: 18),
-                  SizedBox(width: 5),
-                  Text(
-                    'Download',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+              child: isDownloading
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        value: audioState.downloadProgress,
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          color: isActive ? Colors.white : AppColors.saffron,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          isPlaying ? 'Pause' : 'Play',
+                          style: TextStyle(
+                            color: isActive ? Colors.white : AppColors.saffron,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
           ),
         ],
