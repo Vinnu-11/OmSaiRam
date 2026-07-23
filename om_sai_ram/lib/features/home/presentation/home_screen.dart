@@ -57,11 +57,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.schedule_rounded),
-            tooltip: tr.dailyProgramme,
-            onPressed: () => context.go(AppRoutes.dailyProgramme),
-          ),
-          IconButton(
             icon: const Icon(Icons.help_outline),
             tooltip: tr.faq,
             onPressed: () => context.go(AppRoutes.faq),
@@ -116,61 +111,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
 
-            const SizedBox(height: 14),
 
-            // Daily Programme banner
-            GestureDetector(
-              onTap: () => context.go(AppRoutes.dailyProgramme),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.saffron.withOpacity(0.25)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.saffron.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(Icons.schedule_rounded,
-                          color: AppColors.saffron, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tr.dailyProgramme,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: AppColors.darkText,
-                            ),
-                          ),
-                          Text(
-                            tr.dailyProgrammeSubtitle,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.lightText,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Icon(Icons.arrow_forward_ios,
-                        size: 14, color: AppColors.saffron),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 10),
+            const SizedBox(height: 10);
 
             // Upcoming Events banner
             GestureDetector(
@@ -588,12 +530,14 @@ class _StatCard extends StatelessWidget {
   final Color iconColor;
   final String value;
   final String label;
+  final bool highlight;
 
   const _StatCard({
     required this.icon,
     required this.iconColor,
     required this.value,
     required this.label,
+    this.highlight = false,
   });
 
   @override
@@ -601,9 +545,14 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: highlight
+            ? Colors.amber.withOpacity(0.08)
+            : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.lightGrey),
+        border: Border.all(
+          color: highlight ? Colors.amber.withOpacity(0.5) : AppColors.lightGrey,
+          width: highlight ? 1.5 : 1.0,
+        ),
       ),
       child: Column(
         children: [
@@ -622,6 +571,24 @@ class _StatCard extends StatelessWidget {
             style: TextStyle(fontSize: 10, color: AppColors.lightText),
             textAlign: TextAlign.center,
           ),
+          if (highlight) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Text(
+                '2× this week',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.amber,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

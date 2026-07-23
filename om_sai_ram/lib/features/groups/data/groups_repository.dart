@@ -37,6 +37,7 @@ class GroupsRepository {
     String? description,
     required ReadingMode mode,
     int chaptersPerWeek = 2,
+    int startChapter = 1,
   }) async {
     final response = await _apiClient.post(
       AppConstants.groupsEndpoint,
@@ -45,6 +46,7 @@ class GroupsRepository {
         'description': description,
         'mode': mode == ReadingMode.saptah ? 'saptah' : 'chapter_wise',
         'chapters_per_week': chaptersPerWeek,
+        'start_chapter': startChapter,
       },
     );
     return Group.fromJson(response.data);

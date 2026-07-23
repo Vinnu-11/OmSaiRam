@@ -22,6 +22,7 @@ class Group extends Equatable {
   final String createdBy;
   final int memberCount;
   final int chaptersPerWeek;
+  final int startChapter;
   final int currentWeek;
   final DateTime createdAt;
 
@@ -34,6 +35,7 @@ class Group extends Equatable {
     required this.createdBy,
     required this.memberCount,
     this.chaptersPerWeek = 2,
+    this.startChapter = 1,
     this.currentWeek = 1,
     required this.createdAt,
   });
@@ -48,6 +50,7 @@ class Group extends Equatable {
       createdBy: json['created_by'] as String,
       memberCount: json['member_count'] as int? ?? 0,
       chaptersPerWeek: json['chapters_per_week'] as int? ?? 2,
+      startChapter: json['start_chapter'] as int? ?? 1,
       currentWeek: json['current_week'] as int? ?? 1,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
@@ -63,6 +66,7 @@ class Group extends Equatable {
       'created_by': createdBy,
       'member_count': memberCount,
       'chapters_per_week': chaptersPerWeek,
+      'start_chapter': startChapter,
       'current_week': currentWeek,
       'created_at': createdAt.toIso8601String(),
     };

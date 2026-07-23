@@ -32,12 +32,15 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   ReadingMode _selectedMode = ReadingMode.chapterWise;
   int _chaptersPerWeek = 2;
   final _chaptersController = TextEditingController(text: '2');
+  int _startChapter = 1;
+  final _startChapterController = TextEditingController(text: '1');
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
     _chaptersController.dispose();
+    _startChapterController.dispose();
     super.dispose();
   }
 
@@ -52,6 +55,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
               : _descriptionController.text.trim(),
           mode: _selectedMode,
           chaptersPerWeek: _chaptersPerWeek,
+          startChapter: _startChapter,
         );
 
     if (mounted && success) {
@@ -232,6 +236,91 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                   const SizedBox(width: 16),
                   Text(
                     'chapter${_chaptersPerWeek == 1 ? '' : 's'}/week',
+                    style: TextStyle(
+                      color: AppColors.lightText,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 28),
+
+              // Starting chapter
+              Text('Starting Chapter',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(
+                'Which chapter the group begins reading from (1–53)',
+                style: TextStyle(color: AppColors.lightText, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  // Decrement button
+                  _StepperButton(
+                    icon: Icons.remove,
+                    onTap: _startChapter > 1
+                        ? () => setState(() {
+                              _startChapter--;
+                              _startChapterController.text = '$_startChapter';
+                            })
+                        : null,
+                  ),
+                  const SizedBox(width: 8),
+                  // Editable number field
+                  SizedBox(
+                    width: 72,
+                    child: TextFormField(
+                      controller: _startChapterController,
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                      ),
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppColors.saffron),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              BorderSide(color: AppColors.saffron, width: 2),
+                        ),
+                      ),
+                      onChanged: (v) {
+                        final n = int.tryParse(v);
+                        if (n != null && n >= 1 && n <= 53) {
+                          setState(() => _startChapter = n);
+                        }
+                      },
+                      validator: (v) {
+                        final n = int.tryParse(v ?? '');
+                        if (n == null || n < 1 || n > 53) {
+                          return '1–53';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Increment button
+                  _StepperButton(
+                    icon: Icons.add,
+                    onTap: _startChapter < 53
+                        ? () => setState(() {
+                              _startChapter++;
+                              _startChapterController.text = '$_startChapter';
+                            })
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'chapter',
                     style: TextStyle(
                       color: AppColors.lightText,
                       fontSize: 14,

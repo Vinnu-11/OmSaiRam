@@ -66,6 +66,7 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
     String? description,
     required ReadingMode mode,
     int chaptersPerWeek = 2,
+    int startChapter = 1,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -74,6 +75,7 @@ class GroupsNotifier extends StateNotifier<GroupsState> {
         description: description,
         mode: mode,
         chaptersPerWeek: chaptersPerWeek,
+        startChapter: startChapter,
       );
       final updated = [...state.groups.where((g) => g.id != group.id), group];
       state = GroupsState(groups: updated);

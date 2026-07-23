@@ -14,7 +14,7 @@ class LiveDarshanScreen extends StatefulWidget {
 }
 
 class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
-  late final WebViewController _controller;
+  WebViewController? _controller;
   bool _loading = true;
   bool _hasError = false;
 
@@ -24,32 +24,42 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent(
-        'Mozilla/5.0 (Linux; Android 11; Mobile) AppleWebKit/537.36 '
-        '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-      )
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (_) => setState(() {
-          _loading = true;
-          _hasError = false;
-        }),
-        onPageFinished: (_) => setState(() => _loading = false),
-        onWebResourceError: (_) => setState(() {
-          _loading = false;
-          _hasError = true;
-        }),
-      ))
-      ..loadRequest(Uri.parse(_liveUrl));
+    _initWebView();
+  }
+
+  void _initWebView() {
+    if (WebViewPlatform.instance == null) {
+      // Platform doesn't support WebView (e.g. desktop during dev).
+      setState(() { _hasError = true; _loading = false; });
+      return;
+    }
+    try {
+      _controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setUserAgent(
+          'Mozilla/5.0 (Linux; Android 11; Mobile) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        )
+        ..setNavigationDelegate(NavigationDelegate(
+          onPageStarted: (_) => setState(() {
+            _loading = true;
+            _hasError = false;
+          }),
+          onPageFinished: (_) => setState(() => _loading = false),
+          onWebResourceError: (_) => setState(() {
+            _loading = false;
+            _hasError = true;
+          }),
+        ))
+        ..loadRequest(Uri.parse(_liveUrl));
+    } catch (_) {
+      setState(() { _hasError = true; _loading = false; });
+    }
   }
 
   void _reload() {
-    setState(() {
-      _loading = true;
-      _hasError = false;
-    });
-    _controller.loadRequest(Uri.parse(_liveUrl));
+    setState(() { _loading = true; _hasError = false; });
+    _controller?.loadRequest(Uri.parse(_liveUrl));
   }
 
   @override
@@ -79,10 +89,11 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
       body: Stack(
         children: [
           // Live stream webview
-          WebViewWidget(controller: _controller),
+          if (_controller != null)
+            WebViewWidget(controller: _controller!),
 
           // Loading indicator
-          if (_loading)
+          if (_loading && !_hasError)
             Container(
               color: Colors.black87,
               child: Center(
@@ -103,40 +114,313 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
               ),
             ),
 
-          // Error state
+          // Inactive / error state
           if (_hasError && !_loading)
+            Container(
+              color: Colors.black,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.saffron.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.live_tv_rounded,
+                          color: AppColors.saffron,
+                          size: 52,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Live Darshan Inactive',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'The live stream is not broadcasting right now.\n'
+                        'Please check back during Aarti timings.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.55),
+                          fontSize: 13,
+                          height: 1.6,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      FilledButton.icon(
+                        onPressed: _reload,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Try Again'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.saffron,
+                          minimumSize: const Size(180, 46),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class LiveDarshanScreen extends StatefulWidget {
+  const LiveDarshanScreen({super.key});
+
+  @override
+  State<LiveDarshanScreen> createState() => _LiveDarshanScreenState();
+}
+
+class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
+  WebViewController? _controller;
+  bool _loading = true;
+  bool _hasError = false;
+  /// True when the platform doesn't support WebView (e.g. Linux desktop).
+  bool _unsupported = false;
+
+  static const String _liveUrl =
+      'https://sai.org.in/node/504?width=960&height=540&iframe=true';
+
+  @override
+  void initState() {
+    super.initState();
+    _initWebView();
+  }
+
+  void _initWebView() {
+    // WebViewPlatform.instance is null on platforms without a WebView
+    // implementation (e.g. Linux). Guard against the assertion crash.
+    if (WebViewPlatform.instance == null) {
+      setState(() {
+        _unsupported = true;
+        _loading = false;
+      });
+      return;
+    }
+    try {
+      _controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setUserAgent(
+          'Mozilla/5.0 (Linux; Android 11; Mobile) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        )
+        ..setNavigationDelegate(NavigationDelegate(
+          onPageStarted: (_) => setState(() {
+            _loading = true;
+            _hasError = false;
+          }),
+          onPageFinished: (_) => setState(() => _loading = false),
+          onWebResourceError: (_) => setState(() {
+            _loading = false;
+            _hasError = true;
+          }),
+        ))
+        ..loadRequest(Uri.parse(_liveUrl));
+    } catch (_) {
+      setState(() {
+        _unsupported = true;
+        _loading = false;
+      });
+    }
+  }
+
+  void _reload() {
+    if (_controller == null) return;
+    setState(() {
+      _loading = true;
+      _hasError = false;
+    });
+    _controller!.loadRequest(Uri.parse(_liveUrl));
+  }
+
+  Future<void> _openInBrowser() async {
+    final uri = Uri.parse('https://sai.org.in/live-darshan');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text(
+          'Live Darshan',
+          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+        ),
+        centerTitle: false,
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.white),
+          onPressed: () => AppShell.scaffoldKey.currentState?.openDrawer(),
+        ),
+        actions: [
+          if (!_unsupported)
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+              onPressed: _reload,
+              tooltip: 'Refresh',
+            ),
+          IconButton(
+            icon: const Icon(Icons.open_in_browser_rounded, color: Colors.white),
+            onPressed: _openInBrowser,
+            tooltip: 'Open in browser',
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // Live stream webview (only when platform supports it)
+          if (_controller != null)
+            WebViewWidget(controller: _controller!),
+
+          // Loading indicator
+          if (_loading && !_unsupported)
             Container(
               color: Colors.black87,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.signal_wifi_off_rounded,
-                        color: Colors.white.withOpacity(0.5), size: 48),
+                    const CircularProgressIndicator(color: AppColors.saffron),
                     const SizedBox(height: 16),
                     Text(
-                      'Could not load live stream.\nPlease check your internet connection.',
-                      textAlign: TextAlign.center,
+                      'Loading Live Darshan...',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withOpacity(0.8),
                         fontSize: 14,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      onPressed: _reload,
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Try Again'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.saffron,
                       ),
                     ),
                   ],
                 ),
               ),
             ),
+
+          // Stream load error — live may be inactive
+          if (_hasError && !_loading && !_unsupported)
+            _FallbackView(
+              icon: Icons.live_tv_rounded,
+              title: 'Live Darshan Inactive',
+              message: 'The live stream is currently unavailable.\n'
+                  'It may be outside broadcast hours or\n'
+                  'your connection may be slow.',
+              onRetry: _reload,
+              onBrowser: _openInBrowser,
+            ),
+
+          // Platform doesn't support WebView
+          if (_unsupported)
+            _FallbackView(
+              icon: Icons.cast_rounded,
+              title: 'Live Darshan',
+              message: 'In-app live stream is not supported on this device.\n'
+                  'Tap below to watch in your browser.',
+              onBrowser: _openInBrowser,
+            ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared fallback / inactive-state widget
+// ---------------------------------------------------------------------------
+
+class _FallbackView extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final VoidCallback? onRetry;
+  final VoidCallback onBrowser;
+
+  const _FallbackView({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.onRetry,
+    required this.onBrowser,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.saffron.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: AppColors.saffron, size: 48),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 13,
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 28),
+              if (onRetry != null) ...[
+                FilledButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Try Again'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.saffron,
+                    minimumSize: const Size(200, 46),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              OutlinedButton.icon(
+                onPressed: onBrowser,
+                icon: const Icon(Icons.open_in_browser_rounded),
+                label: const Text('Watch in Browser'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  minimumSize: const Size(200, 46),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

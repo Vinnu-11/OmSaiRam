@@ -68,22 +68,30 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           icon: const Icon(Icons.menu),
           onPressed: () => AppShell.scaffoldKey.currentState?.openDrawer(),
         ),
-        actions: [
-          // Join group button
-          IconButton(
-            icon: const Icon(Icons.group_add_outlined),
-            tooltip: tr.joinGroup,
+      ),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'create_group_fab',
+            onPressed: () => context.go('/groups/create'),
+            backgroundColor: AppColors.white,
+            foregroundColor: AppColors.saffron,
+            elevation: 2,
+            icon: const Icon(Icons.add),
+            label: Text(tr.createGroup),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'join_group_fab',
             onPressed: () => _showJoinGroupDialog(context, tr),
+            backgroundColor: AppColors.saffron,
+            foregroundColor: AppColors.white,
+            icon: const Icon(Icons.group_add_outlined),
+            label: Text(tr.joinGroup),
           ),
         ],
-      ),
-      // FAB to create a new group
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/groups/create'),
-        backgroundColor: AppColors.saffron,
-        foregroundColor: AppColors.white,
-        icon: const Icon(Icons.add),
-        label: Text(tr.createGroup),
       ),
       body: _buildBody(groupsState, tr),
     );

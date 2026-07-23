@@ -1,13 +1,13 @@
 // Om Sai Ram
-// Satcharitra Audio screen — language tabs + chapter download list.
+// Satcharitra Audio screen — language tabs + in-app chapter player.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/language_provider.dart';
 import '../../../core/l10n/s.dart';
 import '../data/audio_data.dart';
+import '../providers/chapter_audio_provider.dart';
 
 class SatcharitaAudioScreen extends ConsumerStatefulWidget {
   const SatcharitaAudioScreen({super.key});
@@ -35,6 +35,8 @@ class _SatcharitaAudioScreenState extends ConsumerState<SatcharitaAudioScreen>
   @override
   Widget build(BuildContext context) {
     final tr = S(ref.watch(languageProvider).appLanguage.code);
+    final audioState = ref.watch(chapterAudioProvider);
+
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
@@ -71,9 +73,13 @@ class _SatcharitaAudioScreenState extends ConsumerState<SatcharitaAudioScreen>
           ),
         ),
       ),
+      // Mini player docked at the bottom when audio is active
+      bottomNavigationBar: audioState.isActive || audioState.status == ChapterAudioStatus.downloading
+          ? _SatcharitaMiniPlayer(audioState: audioState)
+          : null,
       body: TabBarView(
         controller: _tabController,
-        children: kSatcharitaAudio.map((lang) => _ChapterList(language: lang, downloadLabel: tr.downloadAudio)).toList(),
+        children: kSatcharitaAudio.map((lang) => _ChapterList(language: lang)).toList(),
       ),
     );
   }
@@ -81,143 +87,279 @@ class _SatcharitaAudioScreenState extends ConsumerState<SatcharitaAudioScreen>
 
 class _ChapterList extends StatelessWidget {
   final SatcharitaLanguage language;
-  final String downloadLabel;
-  const _ChapterList({required this.language, required this.downloadLabel});
+  const _ChapterList({required this.language});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Info banner
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.saffron.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline_rounded, color: AppColors.saffron, size: 18),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Tap Download to save the audio on your device.',
-                    style: TextStyle(fontSize: 13, color: AppColors.mediumText),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-            itemCount: language.chapters.length,
-            itemBuilder: (context, i) {
-              final chapter = language.chapters[i];
-              return _ChapterTile(index: i + 1, track: chapter, downloadLabel: downloadLabel);
-            },
-          ),
-        ),
-      ],
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      itemCount: language.chapters.length,
+      itemBuilder: (context, i) {
+        final chapter = language.chapters[i];
+        return _ChapterTile(index: i + 1, track: chapter);
+      },
     );
   }
 }
 
-class _ChapterTile extends StatelessWidget {
+class _ChapterTile extends ConsumerWidget {
   final int index;
   final AudioTrack track;
-  final String downloadLabel;
-  const _ChapterTile({required this.index, required this.track, required this.downloadLabel});
-
-  Future<void> _download(BuildContext context) async {
-    final uri = Uri.parse(track.downloadUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open audio link')),
-        );
-      }
-    }
-  }
+  const _ChapterTile({required this.index, required this.track});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final audioState = ref.watch(chapterAudioProvider);
+    final isThisTrack = audioState.track?.fileName == track.fileName;
+    final isDownloading = isThisTrack && audioState.status == ChapterAudioStatus.downloading;
+    final isPlaying = isThisTrack && audioState.status == ChapterAudioStatus.playing;
+    final isActive = isThisTrack && audioState.isActive;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.lightGrey),
+        border: Border.all(
+          color: isActive ? AppColors.saffron : AppColors.lightGrey,
+          width: isActive ? 1.5 : 1,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Chapter number badge
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.saffron.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: Text(
-                  '$index',
-                  style: const TextStyle(
-                    color: AppColors.saffron,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
+            Row(
+              children: [
+                // Chapter number badge
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? AppColors.saffron.withOpacity(0.18)
+                        : AppColors.saffron.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                track.title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.darkText,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Download button — large enough for older users
-            GestureDetector(
-              onTap: () => _download(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.saffron,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.download_rounded, color: Colors.white, size: 18),
-                    const SizedBox(width: 5),
-                    Text(
-                      downloadLabel,
+                  child: Center(
+                    child: Text(
+                      '$index',
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        color: AppColors.saffron,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
                       ),
                     ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    track.title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: isActive ? AppColors.saffron : AppColors.darkText,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Play / Pause / Loading button
+                GestureDetector(
+                  onTap: () =>
+                      ref.read(chapterAudioProvider.notifier).toggleAudio(track),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.saffron.withOpacity(0.10),
+                      shape: BoxShape.circle,
+                    ),
+                    child: isDownloading
+                        ? Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: CircularProgressIndicator(
+                              value: audioState.downloadProgress,
+                              strokeWidth: 2.5,
+                              color: AppColors.saffron,
+                            ),
+                          )
+                        : Icon(
+                            isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            color: AppColors.saffron,
+                            size: 26,
+                          ),
+                  ),
+                ),
+              ],
+            ),
+            // Download progress bar
+            if (isDownloading && audioState.downloadProgress != null) ...[
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: audioState.downloadProgress,
+                backgroundColor: AppColors.lightGrey,
+                color: AppColors.saffron,
+                minHeight: 3,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Loading… ${(audioState.downloadProgress! * 100).toStringAsFixed(0)}%',
+                style: const TextStyle(fontSize: 11, color: AppColors.mediumText),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mini player docked at the bottom of the Satcharitra Audio screen
+// ---------------------------------------------------------------------------
+
+class _SatcharitaMiniPlayer extends ConsumerWidget {
+  final ChapterAudioState audioState;
+  const _SatcharitaMiniPlayer({required this.audioState});
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(chapterAudioProvider.notifier);
+    final track = audioState.track;
+    if (track == null) return const SizedBox.shrink();
+
+    final isDownloading = audioState.status == ChapterAudioStatus.downloading;
+    final isPlaying = audioState.status == ChapterAudioStatus.playing;
+    final total = audioState.total;
+    final position = audioState.position;
+    final sliderMax =
+        total.inMilliseconds > 0 ? total.inMilliseconds.toDouble() : 1.0;
+    final sliderVal =
+        position.inMilliseconds.clamp(0, total.inMilliseconds).toDouble();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppColors.lightGrey)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(
+        16, 10, 16,
+        10 + MediaQuery.of(context).padding.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.saffron.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.headphones_rounded,
+                    color: AppColors.saffron, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      track.title,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.darkText),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (isDownloading && audioState.downloadProgress != null)
+                      Text(
+                        'Loading… ${(audioState.downloadProgress! * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                            fontSize: 11, color: AppColors.mediumText),
+                      )
+                    else
+                      Text(
+                        '${_fmt(position)}  /  ${_fmt(total)}',
+                        style: const TextStyle(
+                            fontSize: 11, color: AppColors.mediumText),
+                      ),
                   ],
                 ),
               ),
+              if (isDownloading)
+                SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
+                    value: audioState.downloadProgress,
+                    strokeWidth: 2.5,
+                    color: AppColors.saffron,
+                  ),
+                )
+              else
+                IconButton(
+                  icon: Icon(
+                    isPlaying
+                        ? Icons.pause_circle_filled_rounded
+                        : Icons.play_circle_filled_rounded,
+                    color: AppColors.saffron,
+                    size: 36,
+                  ),
+                  padding: EdgeInsets.zero,
+                  onPressed: () => notifier.toggleAudio(track),
+                ),
+              IconButton(
+                icon: const Icon(Icons.close_rounded,
+                    size: 20, color: AppColors.mediumText),
+                padding: EdgeInsets.zero,
+                onPressed: () => notifier.stop(),
+              ),
+            ],
+          ),
+          if (!isDownloading && total.inSeconds > 0)
+            SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 3,
+                thumbShape:
+                    const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape:
+                    const RoundSliderOverlayShape(overlayRadius: 12),
+                activeTrackColor: AppColors.saffron,
+                inactiveTrackColor: AppColors.lightGrey,
+                thumbColor: AppColors.saffron,
+                overlayColor: AppColors.saffron.withOpacity(0.15),
+              ),
+              child: Slider(
+                value: sliderVal,
+                min: 0,
+                max: sliderMax,
+                onChanged: (v) =>
+                    notifier.seek(Duration(milliseconds: v.round())),
+              ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

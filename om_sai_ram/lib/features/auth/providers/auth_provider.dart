@@ -72,7 +72,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final user = await _repository.login(email: email, password: password);
       state = AuthState(user: user);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: _parseError(e));
+      state = state.copyWith(isLoading: false, error: _parseError(e, _AuthFlow.login));
     }
   }
 
@@ -93,7 +93,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = AuthState(user: user);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: _parseError(e));
+      state = state.copyWith(isLoading: false, error: _parseError(e, _AuthFlow.signup));
     }
   }
 
@@ -106,7 +106,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(isLoading: false);
       return expiryMinutes;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: _parseError(e));
+      state = state.copyWith(isLoading: false, error: _parseError(e, _AuthFlow.sendOtp));
       rethrow;
     }
   }
@@ -126,7 +126,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = AuthState(user: user);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: _parseError(e));
+      state = state.copyWith(isLoading: false, error: _parseError(e, _AuthFlow.verifyOtp));
     }
   }
 
@@ -145,7 +145,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       state = AuthState(user: user);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: _parseError(e));
+      state = state.copyWith(isLoading: false, error: _parseError(e, _AuthFlow.social));
     }
   }
 
@@ -161,7 +161,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Extracts a user-friendly error message from exceptions.
-  String _parseError(dynamic error) {
+  String _parseError(dynamic error, _AuthFlow flow) {
     final errStr = error.toString();
 
     // Network / connection errors
@@ -176,18 +176,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return 'Connection timed out. Please try again.';
     }
 
-    // HTTP status-specific errors
+    // HTTP status-specific errors — messages vary by flow
     if (errStr.contains('409')) {
       return 'An account with this email or mobile number already exists.';
     }
     if (errStr.contains('404')) {
-      return 'No account found for this number.';
+      return flow == _AuthFlow.login
+          ? 'No account found with this email. Please sign up.'
+          : 'No account found for this number.';
     }
     if (errStr.contains('401')) {
-      return 'Invalid or expired OTP. Please try again.';
+      return flow == _AuthFlow.login
+          ? 'Incorrect email or password. Please try again.'
+          : 'Invalid or expired OTP. Please try again.';
     }
     if (errStr.contains('400')) {
-      return 'Invalid details. Please check and try again.';
+      return flow == _AuthFlow.login
+          ? 'Invalid email or password. Please check and try again.'
+          : 'Invalid details. Please check and try again.';
     }
     if (errStr.contains('422')) {
       return 'Please check your input and try again.';
@@ -202,3 +208,5 @@ class AuthNotifier extends StateNotifier<AuthState> {
     return 'Something went wrong. Please try again.';
   }
 }
+
+enum _AuthFlow { login, signup, sendOtp, verifyOtp, social }

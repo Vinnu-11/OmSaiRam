@@ -520,11 +520,12 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
 
   void _openAutoScheduleSheet() async {
     // Determine the next unscheduled chapter to pre-fill the start field.
+    // Start search from the group's configured start_chapter (defaults to 1).
     final allAssignments = await ref
         .read(assignmentsRepositoryProvider)
         .getGroupAssignments(widget.groupId);
     final assignedChapters = allAssignments.map((a) => a.chapterNumber ?? 0).toSet();
-    int startChapter = 1;
+    int startChapter = widget.group.startChapter;
     while (assignedChapters.contains(startChapter)) startChapter++;
 
     if (!mounted) return;
@@ -1260,7 +1261,7 @@ class _AutoScheduleSheetState extends ConsumerState<_AutoScheduleSheet> {
           ),
           const SizedBox(height: 2),
           Text(
-            '${widget.members.length} members · ${widget.group.chaptersPerWeek} ch/member/week',
+            '${widget.members.length} members · ${widget.group.chaptersPerWeek} ch/member/week · starting Ch. ${widget.group.startChapter}',
             style: const TextStyle(fontSize: 12, color: AppColors.lightText),
           ),
 

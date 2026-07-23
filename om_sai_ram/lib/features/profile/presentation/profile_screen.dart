@@ -117,10 +117,14 @@ class ProfileScreen extends ConsumerWidget {
           Row(
             children: [
               _MiniStatCard(
-                icon: Icons.local_fire_department_rounded,
-                color: AppColors.deepOrange,
+                icon: readingProgress.readingsThisWeek >= 2
+                    ? Icons.auto_awesome_rounded
+                    : Icons.local_fire_department_rounded,
+                color: readingProgress.readingsThisWeek >= 2
+                    ? Colors.amber
+                    : AppColors.deepOrange,
                 value: '${readingProgress.currentStreak}',
-                label: 'Streak',
+                label: 'Wk Streak',
               ),
               const SizedBox(width: 10),
               _MiniStatCard(
@@ -543,12 +547,48 @@ class _NotificationsTile extends StatefulWidget {
 
 class _NotificationsTileState extends State<_NotificationsTile> {
   bool _enabled = false;
+  int _hour = 7;
+  int _minute = 0;
   final _svc = NotificationsService();
 
   @override
   void initState() {
     super.initState();
-    _svc.isEnabled().then((v) => setState(() => _enabled = v));
+    _svc.isEnabled().then((v) async {
+      final time = await _svc.getScheduledTime();
+      if (mounted) {
+        setState(() {
+          _enabled = v;
+          _hour = time.hour;
+          _minute = time.minute;
+        });
+      }
+    });
+  }
+
+  String get _timeLabel {
+    final h = _hour % 12 == 0 ? 12 : _hour % 12;
+    final m = _minute.toString().padLeft(2, '0');
+    final period = _hour < 12 ? 'AM' : 'PM';
+    return '$h:$m $period';
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: _hour, minute: _minute),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _hour = picked.hour;
+      _minute = picked.minute;
+    });
+    await _svc.scheduleDailyVerse(hour: _hour, minute: _minute);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Daily verse reminder updated to $_timeLabel 🙏')),
+      );
+    }
   }
 
   Future<void> _toggle() async {
@@ -565,11 +605,11 @@ class _NotificationsTileState extends State<_NotificationsTile> {
         }
         return;
       }
-      await _svc.scheduleDailyVerse(hour: 7, minute: 0);
+      await _svc.scheduleDailyVerse(hour: _hour, minute: _minute);
       setState(() => _enabled = true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Daily verse reminder set for 7:00 AM 🙏')),
+          SnackBar(content: Text('Daily verse reminder set for $_timeLabel 🙏')),
         );
       }
     }
@@ -583,17 +623,36 @@ class _NotificationsTileState extends State<_NotificationsTile> {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: AppColors.mediumText.withOpacity(0.08),
+          color: (_enabled ? AppColors.saffron : AppColors.mediumText).withOpacity(0.08),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(Icons.notifications_outlined, color: AppColors.mediumText, size: 20),
+        child: Icon(
+          Icons.notifications_outlined,
+          color: _enabled ? AppColors.saffron : AppColors.mediumText,
+          size: 20,
+        ),
       ),
       title: const Text('Daily Verse',
           style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15)),
-      subtitle: Text(
-        _enabled ? 'Reminder at 7:00 AM' : 'Off',
-        style: TextStyle(fontSize: 12, color: AppColors.lightText),
-      ),
+      subtitle: _enabled
+          ? GestureDetector(
+              onTap: _pickTime,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Reminder at $_timeLabel',
+                    style: const TextStyle(fontSize: 12, color: AppColors.saffron),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.edit_outlined, size: 12, color: AppColors.saffron),
+                ],
+              ),
+            )
+          : const Text(
+              'Off',
+              style: TextStyle(fontSize: 12, color: AppColors.lightText),
+            ),
       trailing: Switch(
         value: _enabled,
         onChanged: (_) => _toggle(),

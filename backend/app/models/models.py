@@ -56,6 +56,8 @@ class Group(Base):
     created_by = Column(String, ForeignKey("users.id"), nullable=False)
     # How many chapters to assign per week (2 or 3). Used for auto-scheduling.
     chapters_per_week = Column(Integer, default=2)
+    # First chapter to assign when auto-scheduling (1-based). Defaults to Ch.1.
+    start_chapter = Column(Integer, default=1)
     # Current reading week number (1-based). Auto-increments each week.
     current_week = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)

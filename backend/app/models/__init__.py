@@ -10,6 +10,7 @@ from .models import (
     ChapterHighlightComment,
     PhoneOtp,
     Festival,
+    GroupNotificationSchedule,
 )
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "ChapterHighlightComment",
     "PhoneOtp",
     "Festival",
+    "GroupNotificationSchedule",
 ]

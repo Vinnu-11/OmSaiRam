@@ -40,6 +40,7 @@ def _group_to_response(group: Group) -> GroupResponse:
         created_by=group.created_by,
         member_count=len(group.members),
         chapters_per_week=group.chapters_per_week or 2,
+        start_chapter=group.start_chapter or 1,
         current_week=group.current_week or 1,
         created_at=group.created_at,
     )
@@ -88,6 +89,7 @@ def create_group(
         invite_code=invite_code,
         created_by=current_user.id,
         chapters_per_week=request.chapters_per_week,
+        start_chapter=request.start_chapter,
     )
     db.add(group)
     db.flush()  # Get the group ID before adding member
@@ -290,6 +292,8 @@ def update_group_settings(
 
     if request.chapters_per_week is not None:
         group.chapters_per_week = request.chapters_per_week
+    if request.start_chapter is not None:
+        group.start_chapter = request.start_chapter
     if request.current_week is not None:
         group.current_week = request.current_week
 
