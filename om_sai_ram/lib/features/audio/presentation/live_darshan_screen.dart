@@ -1,11 +1,16 @@
 // Om Sai Ram
 // Live Darshan screen — embeds the Shirdi live stream from sai.org.in
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_shell.dart';
+
+// Conditional import for web platform iframe support
+import 'live_darshan_web_stub.dart'
+    if (dart.library.html) 'live_darshan_web.dart' as web_impl;
 
 class LiveDarshanScreen extends StatefulWidget {
   const LiveDarshanScreen({super.key});
@@ -27,6 +32,11 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
   @override
   void initState() {
     super.initState();
+    // On web, we use an iframe directly.
+    if (kIsWeb) {
+      _loading = false;
+      return;
+    }
     _initWebView();
   }
 
@@ -121,8 +131,12 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
       ),
       body: Stack(
         children: [
+          // On web platform, use an iframe directly
+          if (kIsWeb)
+            web_impl.buildIframe(_liveUrl),
+
           // Live stream webview (only when platform supports it)
-          if (_controller != null)
+          if (!kIsWeb && _controller != null)
             WebViewWidget(controller: _controller!),
 
           // Loading indicator

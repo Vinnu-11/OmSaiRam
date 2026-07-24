@@ -13,6 +13,7 @@ from .database import engine, Base
 from .routers import auth, groups, assignments, progress, content, group_chat
 from .routers import festivals
 from .routers import notification_schedule
+from .routers import live_darshan
 from .services.festival_scraper import refresh_festivals_in_db
 
 logger = logging.getLogger(__name__)
@@ -110,6 +111,12 @@ app.include_router(
     notification_schedule.router,
     prefix=f"/api/{settings.api_version}/groups",
     tags=["Notification Schedule"],
+)
+
+app.include_router(
+    live_darshan.router,
+    prefix=f"/api/{settings.api_version}/live-darshan",
+    tags=["Live Darshan"],
 )
 
 
