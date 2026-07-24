@@ -112,7 +112,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
 
 
-            const SizedBox(height: 10);
+            const SizedBox(height: 10),
 
             // Upcoming Events banner
             GestureDetector(

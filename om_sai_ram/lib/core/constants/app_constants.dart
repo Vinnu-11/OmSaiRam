@@ -47,7 +47,7 @@ class AppConstants {
   static const String userDataKey = 'user_data';
 
   // Sai Satcharita
-  static const int totalChapters = 47;
+  static const int totalChapters = 50;
   static const int saptahDays = 7;
 
   // Pagination

@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/language_provider.dart';
 import '../../../core/l10n/s.dart';
@@ -186,7 +187,7 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     Text(
-                      '${filtered.length} chapters · ${progress.completedChapters.length} completed',
+                      '${AppConstants.totalChapters} chapters · ${progress.completedChapters.length} completed',
                       style: TextStyle(color: AppColors.lightText, fontSize: 13),
                     ),
                   ],
@@ -323,6 +324,8 @@ class _ReaderLanguageToggle extends ConsumerWidget {
   void _showPicker(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
