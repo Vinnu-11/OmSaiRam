@@ -1,130 +1,171 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Darshan</title>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-    #container {
-      width: 100%; height: 100%;
-      display: flex; align-items: center; justify-content: center;
-      flex-direction: column;
-    }
-    video {
-      width: 100%; height: 100%;
-      object-fit: contain;
-      background: #000;
-    }
-    #error {
-      display: none;
-      color: #fff;
-      text-align: center;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      padding: 20px;
-    }
-    #error h2 { color: #f4a026; margin-bottom: 10px; }
-    #error p { opacity: 0.7; font-size: 14px; line-height: 1.6; }
-    #retry-btn {
-      margin-top: 16px;
-      padding: 10px 24px;
-      background: #f4a026;
-      color: #000;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    #retry-btn:hover { background: #e0900f; }
-    .spinner {
-      width: 40px; height: 40px;
-      border: 4px solid rgba(244, 160, 38, 0.3);
-      border-top-color: #f4a026;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-  </style>
-</head>
-<body>
-  <div id="container">
-    <div class="spinner" id="spinner"></div>
-    <video id="video" autoplay muted playsinline controls></video>
-    <div id="error">
-      <h2>Live Darshan Unavailable</h2>
-      <p>The live stream is currently inactive or could not be loaded.</p>
-      <button id="retry-btn" onclick="loadStream()">Retry</button>
-    </div>
-  </div>
-  <script>
-    const video = document.getElementById('video');
-    const spinner = document.getElementById('spinner');
-    const errorDiv = document.getElementById('error');
-
-    video.style.display = 'none';
-
-    // Get the API base URL from query params or default to localhost:8000
-    const params = new URLSearchParams(window.location.search);
-    const apiBase = params.get('api') || 'http://localhost:8000/api/v1';
-
-    async function loadStream() {
-      spinner.style.display = 'block';
-      video.style.display = 'none';
-      errorDiv.style.display = 'none';
-
-      try {
-        const resp = await fetch(`${apiBase}/live-darshan/stream-url`);
-        if (!resp.ok) throw new Error(`API error: ${resp.status}`);
-        const data = await resp.json();
-        const streamUrl = data.url;
-
-        if (Hls.isSupported()) {
-          const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-          });
-          hls.loadSource(streamUrl);
-          hls.attachMedia(video);
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            spinner.style.display = 'none';
-            video.style.display = 'block';
-            video.play().catch(() => {});
-          });
-          hls.on(Hls.Events.ERROR, (event, data) => {
-            if (data.fatal) {
-              spinner.style.display = 'none';
-              video.style.display = 'none';
-              errorDiv.style.display = 'block';
-            }
-          });
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          // Safari native HLS support
-          video.src = streamUrl;
-          video.addEventListener('loadedmetadata', () => {
-            spinner.style.display = 'none';
-            video.style.display = 'block';
-            video.play().catch(() => {});
-          });
-          video.addEventListener('error', () => {
-            spinner.style.display = 'none';
-            video.style.display = 'none';
-            errorDiv.style.display = 'block';
-          });
-        } else {
-          throw new Error('HLS not supported');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Darshan</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-      } catch (e) {
-        console.error('Live Darshan load error:', e);
-        spinner.style.display = 'none';
-        video.style.display = 'none';
-        errorDiv.style.display = 'block';
-      }
-    }
 
-    loadStream();
-  </script>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        #error {
+            display: none;
+            color: #fff;
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+        }
+
+        #error h2 {
+            color: #f4a026;
+            margin-bottom: 10px;
+        }
+
+        #error p {
+            opacity: 0.7;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        #retry-btn {
+            margin-top: 16px;
+            padding: 10px 24px;
+            background: #f4a026;
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #retry-btn:hover {
+            background: #e0900f;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(244, 160, 38, 0.3);
+            border-top-color: #f4a026;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <div class="spinner" id="spinner"></div>
+        <video id="video" autoplay muted playsinline controls></video>
+        <div id="error">
+            <h2>Live Darshan Unavailable</h2>
+            <p>The live stream is currently inactive or could not be loaded.</p>
+            <button id="retry-btn" onclick="loadStream()">Retry</button>
+        </div>
+    </div>
+    <script>
+        const video = document.getElementById('video');
+        const spinner = document.getElementById('spinner');
+        const errorDiv = document.getElementById('error');
+
+        video.style.display = 'none';
+
+        // Get the API base URL from query params or default to localhost:8000
+        const params = new URLSearchParams(window.location.search);
+        const apiBase = params.get('api') || 'http://localhost:8000/api/v1';
+
+        async function loadStream() {
+            spinner.style.display = 'block';
+            video.style.display = 'none';
+            errorDiv.style.display = 'none';
+
+            try {
+                const resp = await fetch(`${apiBase}/live-darshan/stream-url`);
+                if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+                const data = await resp.json();
+                const streamUrl = data.url;
+
+                if (Hls.isSupported()) {
+                    const hls = new Hls({
+                        enableWorker: true,
+                        lowLatencyMode: true,
+                    });
+                    hls.loadSource(streamUrl);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        spinner.style.display = 'none';
+                        video.style.display = 'block';
+                        video.play().catch(() => { });
+                    });
+                    hls.on(Hls.Events.ERROR, (event, data) => {
+                        if (data.fatal) {
+                            spinner.style.display = 'none';
+                            video.style.display = 'none';
+                            errorDiv.style.display = 'block';
+                        }
+                    });
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Safari native HLS support
+                    video.src = streamUrl;
+                    video.addEventListener('loadedmetadata', () => {
+                        spinner.style.display = 'none';
+                        video.style.display = 'block';
+                        video.play().catch(() => { });
+                    });
+                    video.addEventListener('error', () => {
+                        spinner.style.display = 'none';
+                        video.style.display = 'none';
+                        errorDiv.style.display = 'block';
+                    });
+                } else {
+                    throw new Error('HLS not supported');
+                }
+            } catch (e) {
+                console.error('Live Darshan load error:', e);
+                spinner.style.display = 'none';
+                video.style.display = 'none';
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        loadStream();
+    </script>
 </body>
+
 </html>
