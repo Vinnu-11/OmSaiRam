@@ -171,6 +171,16 @@ class _AppDrawer extends ConsumerWidget {
             },
           ),
 
+          // Daily Programme
+          _DrawerTile(
+            icon: Icons.schedule_rounded,
+            label: tr.dailyProgramme,
+            onTap: () {
+              Navigator.pop(context);
+              context.go(AppRoutes.dailyProgramme);
+            },
+          ),
+
           // Audio
           _DrawerTile(
             icon: Icons.headphones_outlined,

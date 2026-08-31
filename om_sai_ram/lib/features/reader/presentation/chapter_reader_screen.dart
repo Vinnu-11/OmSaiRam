@@ -1016,6 +1016,8 @@ class _AudioAppBarButton extends ConsumerWidget {
     final isThisTrack = audioState.track?.fileName == track.fileName;
     final isDownloading =
         isThisTrack && audioState.status == ChapterAudioStatus.downloading;
+    final isBuffering =
+        isThisTrack && audioState.status == ChapterAudioStatus.buffering;
     final isPlaying =
         isThisTrack && audioState.status == ChapterAudioStatus.playing;
 
@@ -1032,14 +1034,23 @@ class _AudioAppBarButton extends ConsumerWidget {
                 color: AppColors.saffron,
               ),
             )
-          : Icon(
-              isPlaying
-                  ? Icons.pause_circle_filled_rounded
-                  : Icons.headphones_rounded,
-              color: (isThisTrack && audioState.isActive)
-                  ? AppColors.saffron
-                  : null,
-            ),
+          : isBuffering
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.saffron,
+                  ),
+                )
+              : Icon(
+                  isPlaying
+                      ? Icons.pause_circle_filled_rounded
+                      : Icons.headphones_rounded,
+                  color: (isThisTrack && audioState.isActive)
+                      ? AppColors.saffron
+                      : null,
+                ),
     );
   }
 }
@@ -1070,7 +1081,9 @@ class _MiniAudioPlayer extends ConsumerWidget {
         position.inMilliseconds.clamp(0, total.inMilliseconds).toDouble();
 
     final isDownloading = audioState.status == ChapterAudioStatus.downloading;
+    final isBuffering = audioState.status == ChapterAudioStatus.buffering;
     final isPlaying = audioState.status == ChapterAudioStatus.playing;
+    final isLoading = isDownloading || isBuffering;
 
     return Container(
       decoration: BoxDecoration(
@@ -1121,6 +1134,12 @@ class _MiniAudioPlayer extends ConsumerWidget {
                         style: TextStyle(
                             fontSize: 11, color: AppColors.mediumText),
                       )
+                    else if (isBuffering)
+                      Text(
+                        'Loading audio…',
+                        style: TextStyle(
+                            fontSize: 11, color: AppColors.mediumText),
+                      )
                     else
                       Text(
                         '${_fmt(position)}  /  ${_fmt(total)}',
@@ -1131,12 +1150,11 @@ class _MiniAudioPlayer extends ConsumerWidget {
                 ),
               ),
               // Play / Pause button
-              if (isDownloading)
-                SizedBox(
+              if (isLoading)
+                const SizedBox(
                   width: 32,
                   height: 32,
                   child: CircularProgressIndicator(
-                    value: audioState.downloadProgress,
                     strokeWidth: 2.5,
                     color: AppColors.saffron,
                   ),
@@ -1162,8 +1180,8 @@ class _MiniAudioPlayer extends ConsumerWidget {
               ),
             ],
           ),
-          // Seek slider (only when we have duration)
-          if (!isDownloading && total.inSeconds > 0)
+          // Seek slider (only when we have duration and not loading)
+          if (!isLoading && total.inSeconds > 0)
             SliderTheme(
               data: SliderThemeData(
                 trackHeight: 3,

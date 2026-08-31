@@ -1,0 +1,52 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"from app.models.models import GroupMessage, ChapterHighlightComment, Group; print\\('Models OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/models/models.py'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/routers/group_chat.py'\\).read\\(\\)\\); print\\('Router OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('app/schemas/schemas.py'\\).read\\(\\)\\); print\\('Schemas OK'\\)\")",
+      "Bash(python -m pytest tests/test_groups_and_progress.py -v --tb=short)",
+      "Bash(python3 -m pytest tests/test_groups_and_progress.py -v --tb=short)",
+      "Bash(pip3 install *)",
+      "Bash(python3 demo_groups.py)",
+      "Bash(flutter --version)",
+      "Bash(DATABASE_URL=sqlite:///./demo.db JWT_SECRET_KEY=demo-key-web python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000)",
+      "Bash(echo \"Backend PID: $!\")",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/)",
+      "Bash(python3 /tmp/screenshot_groups.py)",
+      "Bash(rm -f /tmp/screens/*.png && python3 /tmp/screenshot_groups.py 2>&1)",
+      "Bash(flutter run *)",
+      "Bash(echo \"Flutter PID=$!\")",
+      "Bash(python3 /tmp/shoot.py)",
+      "Bash(pkill -f \"uvicorn\")",
+      "Bash(echo \"Backend PID=$!\")",
+      "Bash(flutter pub *)",
+      "Bash(git -C /home/vdamarl/pers/OmSaiRam status)",
+      "Bash(git -C /home/vdamarl/pers/OmSaiRam add om_sai_ram/lib/app.dart om_sai_ram/lib/core/theme/app_theme.dart om_sai_ram/lib/features/home/presentation/home_screen.dart om_sai_ram/lib/features/profile/presentation/profile_screen.dart om_sai_ram/lib/features/reader/presentation/chapter_reader_screen.dart om_sai_ram/lib/features/reader/presentation/chapters_screen.dart om_sai_ram/pubspec.yaml om_sai_ram/pubspec.lock om_sai_ram/lib/core/providers/reader_settings_provider.dart om_sai_ram/lib/core/providers/reading_progress_provider.dart om_sai_ram/lib/core/services/notifications_service.dart)",
+      "Bash(git -C /home/vdamarl/pers/OmSaiRam log --oneline --all)",
+      "Bash(git -C /home/vdamarl/pers/OmSaiRam show HEAD:om_sai_ram/assets/content/satcharita_te.json)",
+      "Bash(awk -F: '{print $1}')",
+      "Bash(git -C /home/vdamarl/pers/OmSaiRam diff --name-only HEAD)",
+      "Bash(git -C /home/vdamarl/pers/OmSaiRam status --short)",
+      "Bash(curl -s http://localhost:8000/api/v1/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"email\":\"test@test.com\",\"password\":\"test\"}')",
+      "Bash(python -c ' *)",
+      "Bash(DATABASE_URL=sqlite:///./demo.db JWT_SECRET_KEY=demo-secret-key python3 -c ' *)",
+      "Bash(xargs cat)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/groups -H 'Content-Type: application/json' -d '{\"name\":\"Test\",\"mode\":\"chapter_wise\",\"chapters_per_week\":3,\"start_chapter\":1}')",
+      "Read(//proc/87359/fd/**)",
+      "Bash(journalctl -u uvicorn)",
+      "Read(//var/log/**)",
+      "Bash(which python3.11 || ls /usr/local/bin/python* 2>/dev/null)",
+      "Read(//usr/local/bin/**)",
+      "Bash(/usr/local/bin/python3 -c ' *)",
+      "Read(//usr/bin/**)",
+      "Bash(/usr/bin/python3 -c ' *)",
+      "Bash(pdftotext -layout /home/vdamarl/pers/OmSaiRam/om_sai_ram/assets/source_pdfs/satcharita_hi.pdf -)"
+    ],
+    "additionalDirectories": [
+      "/tmp/screens"
+    ]
+  }
+}

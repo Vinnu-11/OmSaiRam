@@ -46,11 +46,12 @@ class ApiClient {
           handler.next(options);
         },
         onError: (error, handler) async {
-          // Attempt token refresh on 401 Unauthorized
-          if (error.response?.statusCode == 401) {
+          // Skip token refresh for auth endpoints — let the caller handle the error
+          final path = error.requestOptions.path;
+          final isAuthRequest = path.startsWith('/auth/');
+          if (error.response?.statusCode == 401 && !isAuthRequest) {
             final refreshed = await _refreshToken();
             if (refreshed) {
-              // Retry the original request with new token
               final token =
                   await _storage.read(key: AppConstants.accessTokenKey);
               error.requestOptions.headers['Authorization'] = 'Bearer $token';

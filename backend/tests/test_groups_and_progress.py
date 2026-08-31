@@ -639,3 +639,296 @@ class TestEdgeCases:
         )
         # Pydantic normalizes EmailStr to lowercase
         assert response.status_code == 200
+
+
+# ─── Auto-Schedule & Suggest Tests ────────────────────────────────────────────
+
+
+def _create_group_with_members(n_members=3, chapters_per_week=2, start_chapter=1):
+    """Helper: create a group with n_members and return (admin_token, group_id, user_ids)."""
+    admin_token = _register_and_get_token(
+        f"Admin {os.urandom(4).hex()}",
+        f"admin_{os.urandom(4).hex()}@test.com",
+    )
+    resp = client.post(
+        "/api/v1/groups",
+        json={
+            "name": "Schedule Group",
+            "mode": "chapter_wise",
+            "chapters_per_week": chapters_per_week,
+            "start_chapter": start_chapter,
+        },
+        headers=_auth_header(admin_token),
+    )
+    group_id = resp.json()["id"]
+    admin_id = client.get("/api/v1/auth/me", headers=_auth_header(admin_token)).json()["id"]
+    user_ids = [admin_id]
+
+    for i in range(n_members - 1):
+        token = _register_and_get_token(
+            f"Member {i}_{os.urandom(4).hex()}",
+            f"member_{os.urandom(4).hex()}@test.com",
+        )
+        invite_code = resp.json()["invite_code"]
+        client.post(
+            "/api/v1/groups/join",
+            json={"invite_code": invite_code},
+            headers=_auth_header(token),
+        )
+        uid = client.get("/api/v1/auth/me", headers=_auth_header(token)).json()["id"]
+        user_ids.append(uid)
+
+    return admin_token, group_id, user_ids
+
+
+class TestAutoSchedule:
+    """Tests for auto-schedule endpoint."""
+
+    def test_auto_schedule_independent_mode(self):
+        """Independent mode assigns unique non-overlapping slices."""
+        token, group_id, user_ids = _create_group_with_members(3, chapters_per_week=2)
+        response = client.post(
+            "/api/v1/assignments/auto-schedule",
+            json={
+                "group_id": group_id,
+                "start_chapter": 1,
+                "weeks_ahead": 1,
+                "schedule_mode": "independent",
+                "remainder_mode": "manual",
+            },
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assignments = data["assignments"]
+        # 3 members × 2 chapters each = 6 assignments
+        assert len(assignments) == 6
+        chapter_nums = sorted(a["chapter_number"] for a in assignments)
+        assert chapter_nums == [1, 2, 3, 4, 5, 6]
+
+    def test_auto_schedule_synchronized_mode(self):
+        """Synchronized mode assigns the same chapters to all members."""
+        token, group_id, user_ids = _create_group_with_members(2, chapters_per_week=2)
+        response = client.post(
+            "/api/v1/assignments/auto-schedule",
+            json={
+                "group_id": group_id,
+                "start_chapter": 1,
+                "weeks_ahead": 1,
+                "schedule_mode": "synchronized",
+                "remainder_mode": "manual",
+            },
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 201
+        assignments = response.json()["assignments"]
+        # Both members get Ch.1 and Ch.2
+        per_user = {}
+        for a in assignments:
+            per_user.setdefault(a["user_id"], []).append(a["chapter_number"])
+        for uid, chapters in per_user.items():
+            assert sorted(chapters) == [1, 2]
+
+    def test_auto_schedule_multiple_weeks(self):
+        """Scheduling multiple weeks creates assignments for each week."""
+        token, group_id, _ = _create_group_with_members(2, chapters_per_week=2)
+        response = client.post(
+            "/api/v1/assignments/auto-schedule",
+            json={
+                "group_id": group_id,
+                "start_chapter": 1,
+                "weeks_ahead": 3,
+                "schedule_mode": "synchronized",
+                "remainder_mode": "manual",
+            },
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 201
+        assignments = response.json()["assignments"]
+        weeks = set(a["week_number"] for a in assignments)
+        assert len(weeks) == 3
+
+    def test_auto_schedule_cycle_remainder(self):
+        """Cycle mode wraps chapter numbers past the end back to Ch.1."""
+        token, group_id, _ = _create_group_with_members(1, chapters_per_week=2)
+        response = client.post(
+            "/api/v1/assignments/auto-schedule",
+            json={
+                "group_id": group_id,
+                "start_chapter": 53,
+                "weeks_ahead": 1,
+                "schedule_mode": "independent",
+                "remainder_mode": "cycle",
+            },
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 201
+        assignments = response.json()["assignments"]
+        chapter_nums = sorted(a["chapter_number"] for a in assignments)
+        # Ch.53 stays, Ch.54 wraps to Ch.1
+        assert 53 in chapter_nums
+        assert 1 in chapter_nums
+
+    def test_auto_schedule_no_duplicate_on_rerun(self):
+        """Running auto-schedule twice doesn't create duplicate assignments."""
+        token, group_id, _ = _create_group_with_members(1, chapters_per_week=2)
+        payload = {
+            "group_id": group_id,
+            "start_chapter": 1,
+            "weeks_ahead": 1,
+            "schedule_mode": "independent",
+            "remainder_mode": "manual",
+        }
+        resp1 = client.post("/api/v1/assignments/auto-schedule", json=payload, headers=_auth_header(token))
+        resp2 = client.post("/api/v1/assignments/auto-schedule", json=payload, headers=_auth_header(token))
+        assert resp1.status_code == 201
+        assert resp2.status_code == 201
+        # Second run creates 0 new assignments (already exist)
+        assert len(resp2.json()["assignments"]) == 0
+
+    def test_auto_schedule_non_admin_forbidden(self):
+        """Regular members cannot auto-schedule."""
+        token, group_id, user_ids = _create_group_with_members(2)
+        member_token = _register_and_get_token(
+            f"NonAdmin {os.urandom(4).hex()}",
+            f"nonadmin_{os.urandom(4).hex()}@test.com",
+        )
+        # Join the group as a regular member
+        invite_code = client.get(
+            f"/api/v1/groups/{group_id}",
+            headers=_auth_header(token),
+        ).json()["group"]["invite_code"]
+        client.post(
+            "/api/v1/groups/join",
+            json={"invite_code": invite_code},
+            headers=_auth_header(member_token),
+        )
+        response = client.post(
+            "/api/v1/assignments/auto-schedule",
+            json={"group_id": group_id, "start_chapter": 1, "weeks_ahead": 1},
+            headers=_auth_header(member_token),
+        )
+        assert response.status_code == 403
+
+    def test_auto_schedule_nonexistent_group(self):
+        token = _register_and_get_token(
+            f"NoGroup {os.urandom(4).hex()}",
+            f"nogroup_{os.urandom(4).hex()}@test.com",
+        )
+        response = client.post(
+            "/api/v1/assignments/auto-schedule",
+            json={"group_id": "nonexistent", "start_chapter": 1, "weeks_ahead": 1},
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 403
+
+
+class TestSuggestSchedule:
+    """Tests for the smart-suggest endpoint."""
+
+    def test_suggest_non_overlapping_pattern(self):
+        """Two hints with step=W detected as non_overlapping."""
+        token, group_id, _ = _create_group_with_members(3, chapters_per_week=2)
+        response = client.post(
+            "/api/v1/assignments/suggest",
+            json={
+                "group_id": group_id,
+                "week_number": 1,
+                "hints": [
+                    {"position": 0, "chapter_start": 1},
+                    {"position": 1, "chapter_start": 3},
+                ],
+                "weeks_ahead": 1,
+            },
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["detected_mode"] == "non_overlapping"
+        assert data["detected_step"] == 2
+        # Should have suggestions for all 3 members × 2 weeks (week 1 + 1 ahead)
+        assert len(data["suggestions"]) == 6
+
+    def test_suggest_dense_pattern(self):
+        """Two hints with step=1 detected as dense."""
+        token, group_id, _ = _create_group_with_members(3, chapters_per_week=2)
+        response = client.post(
+            "/api/v1/assignments/suggest",
+            json={
+                "group_id": group_id,
+                "week_number": 1,
+                "hints": [
+                    {"position": 0, "chapter_start": 1},
+                    {"position": 1, "chapter_start": 2},
+                ],
+                "weeks_ahead": 1,
+            },
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 200
+        assert response.json()["detected_mode"] == "dense"
+        assert response.json()["detected_step"] == 1
+
+    def test_suggest_too_few_hints(self):
+        """Less than 2 hints should be rejected."""
+        token, group_id, _ = _create_group_with_members(2)
+        response = client.post(
+            "/api/v1/assignments/suggest",
+            json={
+                "group_id": group_id,
+                "week_number": 1,
+                "hints": [{"position": 0, "chapter_start": 1}],
+                "weeks_ahead": 1,
+            },
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 422
+
+    def test_suggest_non_admin_forbidden(self):
+        """Regular members cannot use suggest."""
+        token, group_id, _ = _create_group_with_members(2)
+        member_token = _register_and_get_token(
+            f"Suggest NonAdmin {os.urandom(4).hex()}",
+            f"suggestna_{os.urandom(4).hex()}@test.com",
+        )
+        invite_code = client.get(
+            f"/api/v1/groups/{group_id}",
+            headers=_auth_header(token),
+        ).json()["group"]["invite_code"]
+        client.post(
+            "/api/v1/groups/join",
+            json={"invite_code": invite_code},
+            headers=_auth_header(member_token),
+        )
+        response = client.post(
+            "/api/v1/assignments/suggest",
+            json={
+                "group_id": group_id,
+                "week_number": 1,
+                "hints": [
+                    {"position": 0, "chapter_start": 1},
+                    {"position": 1, "chapter_start": 3},
+                ],
+            },
+            headers=_auth_header(member_token),
+        )
+        assert response.status_code == 403
+
+
+class TestAdvanceWeek:
+    """Tests for advance-week endpoint."""
+
+    def test_advance_week_success(self):
+        token, group_id, _ = _create_group_with_members(1)
+        response = client.post(
+            f"/api/v1/assignments/advance-week/{group_id}",
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 200
+        assert response.json()["current_week"] == 2
+
+    def test_advance_week_increments(self):
+        token, group_id, _ = _create_group_with_members(1)
+        client.post(f"/api/v1/assignments/advance-week/{group_id}", headers=_auth_header(token))
+        resp = client.post(f"/api/v1/assignments/advance-week/{group_id}", headers=_auth_header(token))
+        assert resp.json()["current_week"] == 3

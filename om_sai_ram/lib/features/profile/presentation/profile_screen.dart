@@ -157,8 +157,16 @@ class ProfileScreen extends ConsumerWidget {
                 _SettingsTile(
                   icon: Icons.person_outlined,
                   title: tr.editProfile,
-                  onTap: () {},
+                  onTap: () => context.go(AppRoutes.editProfile),
                 ),
+                if (user?.authProvider == 'email') ...[
+                  Divider(height: 1, indent: 56, color: AppColors.lightGrey),
+                  _SettingsTile(
+                    icon: Icons.lock_outline,
+                    title: 'Change Password',
+                    onTap: () => context.go(AppRoutes.changePassword),
+                  ),
+                ],
                 Divider(height: 1, indent: 56, color: AppColors.lightGrey),
                 _SettingsTile(
                   icon: Icons.language_outlined,

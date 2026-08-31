@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_shell.dart';
 
@@ -28,11 +29,14 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
 
   static const String _liveUrl =
       'https://sai.org.in/node/504?width=960&height=540&iframe=true';
+  // On web, use the local HLS player page that fetches the stream URL via the API
+  static final String _webPlayerUrl =
+      'live_player.html?api=${Uri.encodeComponent(AppConstants.apiBaseUrl)}';
 
   @override
   void initState() {
     super.initState();
-    // On web, we use an iframe directly.
+    // On web, we use a local HLS player in an iframe (sai.org.in blocks direct embedding).
     if (kIsWeb) {
       _loading = false;
       return;
@@ -131,9 +135,9 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
       ),
       body: Stack(
         children: [
-          // On web platform, use an iframe directly
+          // On web platform, use the local HLS player page
           if (kIsWeb)
-            web_impl.buildIframe(_liveUrl),
+            web_impl.buildIframe(_webPlayerUrl),
 
           // Live stream webview (only when platform supports it)
           if (!kIsWeb && _controller != null)

@@ -34,7 +34,7 @@ dependencies:
 
   # Auth
   google_sign_in: ^6.1.0
-  sign_in_with_apple: ^5.0.0
+  sign_in_with_apple: ^6.1.0
 
   # Audio / download
   url_launcher: ^6.2.0
@@ -44,6 +44,9 @@ dependencies:
   # WebView for live darshan stream
   webview_flutter: ^4.4.0
   webview_flutter_web: ^0.2.3+4
+
+  # Sharing
+  share_plus: ^10.0.0
 
   # Utils
   intl: ^0.20.2

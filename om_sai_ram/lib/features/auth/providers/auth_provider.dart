@@ -155,6 +155,36 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState();
   }
 
+  /// Updates the current user's profile fields.
+  Future<void> updateProfile(Map<String, dynamic> fields) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final user = await _repository.updateProfile(fields);
+      state = AuthState(user: user);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  /// Changes the password for email-authenticated users.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _repository.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: _parseError(e, _AuthFlow.login));
+      rethrow;
+    }
+  }
+
   /// Clears any displayed error.
   void clearError() {
     state = state.copyWith(error: null);
@@ -187,12 +217,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
     if (errStr.contains('401')) {
       return flow == _AuthFlow.login
-          ? 'Incorrect email or password. Please try again.'
+          ? 'Login failed. Please check your credentials and try again.'
           : 'Invalid or expired OTP. Please try again.';
     }
     if (errStr.contains('400')) {
       return flow == _AuthFlow.login
-          ? 'Invalid email or password. Please check and try again.'
+          ? 'Login failed. Please check your credentials and try again.'
           : 'Invalid details. Please check and try again.';
     }
     if (errStr.contains('422')) {

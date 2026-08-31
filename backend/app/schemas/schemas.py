@@ -80,6 +80,30 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
+class UpdateProfileRequest(BaseModel):
+    """Request body for updating user profile."""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = Field(None, max_length=20)
+    avatar_url: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        digits = re.sub(r"[\s\-()]", "", v)
+        if not re.match(r"^\+?[1-9]\d{7,14}$", digits):
+            raise ValueError("Invalid phone number")
+        return digits
+
+
+class ChangePasswordRequest(BaseModel):
+    """Request body for changing password (email auth users only)."""
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
 class AuthResponse(BaseModel):
     """Response containing user data and tokens."""
     user: UserResponse

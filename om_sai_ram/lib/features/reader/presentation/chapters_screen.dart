@@ -326,9 +326,7 @@ class _ReaderLanguageToggle extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (ctx) => _ReaderLanguagePicker(current: current),
     );
   }
@@ -377,145 +375,252 @@ class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
 
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.6,
+      initialChildSize: 0.65,
       minChildSize: 0.4,
       maxChildSize: 0.9,
       builder: (context, scrollController) {
-        return Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.menu_book_rounded,
-                          color: AppColors.saffron, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Reading Language',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Choose the language for the Satcharita text',
-                    style:
-                        TextStyle(fontSize: 13, color: AppColors.lightText),
-                  ),
-                ],
-              ),
-            ),
-
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search language…',
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  suffixIcon: _query.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () => _searchController.clear(),
-                        )
-                      : null,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  isDense: true,
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.cream,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Drag handle
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.lightGrey,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
 
-            // Language list
-            Expanded(
-              child: ListView.builder(
-                controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(24, 4, 24, 32),
-                itemCount: _filtered.length,
-                itemBuilder: (context, index) {
-                  final lang = _filtered[index];
-                  final selected = widget.current == lang;
-                  // Show the English name in parentheses when it differs from label
-                  final showEnglish = lang.label != lang.englishLabel;
-
-                  return GestureDetector(
-                    onTap: () async {
-                      await ref
-                          .read(languageProvider.notifier)
-                          .setReaderLanguage(lang);
-                      ref
-                          .read(chaptersProvider.notifier)
-                          .loadChapters(language: lang.code);
-                      if (context.mounted) Navigator.pop(context);
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 14),
+              // Header with close button
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 12, 4),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: selected
-                            ? AppColors.saffron.withOpacity(0.08)
-                            : AppColors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: selected
-                              ? AppColors.saffron
-                              : AppColors.lightGrey,
-                          width: selected ? 1.5 : 1,
-                        ),
+                        color: AppColors.saffron.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Row(
+                      child: Icon(Icons.translate_rounded,
+                          color: AppColors.saffron, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: RichText(
-                              text: TextSpan(
+                          Text(
+                            'Reading Language',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Choose the language for the Satcharita text',
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.lightText),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.lightGrey.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.close_rounded,
+                            size: 18, color: AppColors.mediumText),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Search bar
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search language…',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: _query.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () => _searchController.clear(),
+                          )
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    isDense: true,
+                    filled: true,
+                    fillColor: AppColors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.lightGrey),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.lightGrey),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          BorderSide(color: AppColors.saffron, width: 1.5),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Language list
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 32),
+                  itemCount: _filtered.length,
+                  itemBuilder: (context, index) {
+                    final lang = _filtered[index];
+                    final selected = widget.current == lang;
+                    final showEnglish = lang.label != lang.englishLabel;
+
+                    return GestureDetector(
+                      onTap: () async {
+                        await ref
+                            .read(languageProvider.notifier)
+                            .setReaderLanguage(lang);
+                        ref
+                            .read(chaptersProvider.notifier)
+                            .loadChapters(language: lang.code);
+                        if (context.mounted) Navigator.pop(context);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppColors.saffron.withOpacity(0.08)
+                              : AppColors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: selected
+                                ? AppColors.saffron
+                                : AppColors.lightGrey.withOpacity(0.7),
+                            width: selected ? 1.5 : 1,
+                          ),
+                          boxShadow: selected
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.saffron.withOpacity(0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  )
+                                ]
+                              : null,
+                        ),
+                        child: Row(
+                          children: [
+                            // Language code badge
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? AppColors.saffron.withOpacity(0.15)
+                                    : AppColors.cream,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  lang.code.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: selected
+                                        ? AppColors.saffron
+                                        : AppColors.mediumText,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  TextSpan(
-                                    text: lang.label,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15,
-                                      color: selected
-                                          ? AppColors.saffron
-                                          : AppColors.darkText,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        lang.label,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
+                                          color: selected
+                                              ? AppColors.saffron
+                                              : AppColors.darkText,
+                                        ),
+                                      ),
+                                      if (lang.isBeta) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.shade50,
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            'BETA',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.orange.shade700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                   if (showEnglish)
-                                    TextSpan(
-                                      text: '  (${lang.englishLabel})',
+                                    Text(
+                                      lang.englishLabel,
                                       style: TextStyle(
-                                        fontWeight: FontWeight.w400,
-                                        fontSize: 13,
+                                        fontSize: 12,
                                         color: selected
-                                            ? AppColors.saffron
-                                                .withOpacity(0.7)
+                                            ? AppColors.saffron.withOpacity(0.7)
                                             : AppColors.lightText,
                                       ),
                                     ),
                                 ],
                               ),
                             ),
-                          ),
-                          if (selected)
-                            Icon(Icons.check_circle_rounded,
-                                color: AppColors.saffron, size: 20),
-                        ],
+                            if (selected)
+                              Icon(Icons.check_circle_rounded,
+                                  color: AppColors.saffron, size: 22),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

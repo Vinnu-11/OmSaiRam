@@ -18,6 +18,8 @@ from ..schemas import (
     PhoneVerifyOtpRequest,
     SocialAuthRequest,
     RefreshRequest,
+    UpdateProfileRequest,
+    ChangePasswordRequest,
     AuthResponse,
     UserResponse,
 )
@@ -298,3 +300,62 @@ def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
 def get_me(current_user: User = Depends(get_current_user)):
     """Get the currently authenticated user's profile."""
     return UserResponse.model_validate(current_user)
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_profile(
+    request: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update the current user's profile fields."""
+    updates = request.model_dump(exclude_unset=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    if "email" in updates and updates["email"]:
+        email = updates["email"].lower()
+        existing = db.query(User).filter(User.email == email, User.id != current_user.id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already in use")
+        updates["email"] = email
+
+    if "phone_number" in updates and updates["phone_number"]:
+        existing = db.query(User).filter(
+            User.phone_number == updates["phone_number"],
+            User.id != current_user.id,
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Phone number already in use")
+
+    for key, value in updates.items():
+        setattr(current_user, key, value)
+    db.commit()
+    db.refresh(current_user)
+    return UserResponse.model_validate(current_user)
+
+
+@router.post("/change-password", status_code=status.HTTP_200_OK)
+def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change password for email-authenticated users."""
+    if current_user.auth_provider != "email":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password change is only available for email accounts",
+        )
+
+    if not current_user.password_hash or not verify_password(
+        request.current_password, current_user.password_hash
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect",
+        )
+
+    current_user.password_hash = hash_password(request.new_password)
+    db.commit()
+    return {"detail": "Password changed successfully"}

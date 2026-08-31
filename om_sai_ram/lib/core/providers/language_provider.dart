@@ -35,7 +35,15 @@ enum AppLanguage {
   final String englishLabel;
 
   /// Languages temporarily disabled due to unusable OCR content.
-  static const Set<AppLanguage> _disabled = {urdu, sindhi};
+  static const Set<AppLanguage> _disabled = {urdu};
+
+  /// Languages with incomplete or partially garbled OCR content.
+  static const Set<AppLanguage> _beta = {
+    kannada, malayalam, urdu, bengali, gujarati, oriya, punjabi, tamil,
+  };
+
+  /// Whether this language is marked as beta (incomplete content).
+  bool get isBeta => _beta.contains(this);
 
   /// Languages available for selection (excludes disabled ones).
   static List<AppLanguage> get available =>

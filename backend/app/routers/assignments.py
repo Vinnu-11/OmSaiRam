@@ -21,6 +21,9 @@ from ..middleware.auth import get_current_user
 
 router = APIRouter()
 
+# Sai Satcharita has 53 chapters; used as fallback when chapters table is empty.
+TOTAL_CHAPTERS = 53
+
 
 def _can_assign(role: str) -> bool:
     return role in ("admin", "group_lead")

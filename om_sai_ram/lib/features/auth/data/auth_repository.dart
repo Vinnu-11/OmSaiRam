@@ -143,6 +143,26 @@ class AuthRepository {
     }
   }
 
+  /// Updates the current user's profile.
+  Future<User> updateProfile(Map<String, dynamic> fields) async {
+    final response = await _apiClient.patch('/auth/me', data: fields);
+    return User.fromJson(response.data);
+  }
+
+  /// Changes the password for email-authenticated users.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _apiClient.post(
+      AppConstants.changePasswordEndpoint,
+      data: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+    );
+  }
+
   /// Stores access and refresh tokens securely.
   Future<void> _storeTokens(Map<String, dynamic> data) async {
     await _storage.write(

@@ -14,6 +14,8 @@ import '../../features/reader/presentation/chapters_screen.dart';
 import '../../features/reader/presentation/chapter_reader_screen.dart';
 import '../../features/faq/presentation/faq_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/profile/presentation/edit_profile_screen.dart';
+import '../../features/profile/presentation/change_password_screen.dart';
 import '../../features/audio/presentation/audio_hub_screen.dart';
 import '../../features/audio/presentation/aarti_screen.dart';
 import '../../features/audio/presentation/satcharitra_audio_screen.dart';
@@ -38,6 +40,8 @@ class AppRoutes {
   static const String chapterReader = '/reader/:chapterId';
   static const String faq = '/faq';
   static const String profile = '/profile';
+  static const String editProfile = '/profile/edit';
+  static const String changePassword = '/profile/change-password';
   static const String audio = '/audio';
   static const String aarti = '/audio/aarti';
   static const String satcharitaAudio = '/audio/satcharitra';
@@ -145,6 +149,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.profile,
             builder: (context, state) => const ProfileScreen(),
+            routes: [
+              GoRoute(
+                path: 'edit',
+                builder: (context, state) => const EditProfileScreen(),
+              ),
+              GoRoute(
+                path: 'change-password',
+                builder: (context, state) => const ChangePasswordScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.audio,

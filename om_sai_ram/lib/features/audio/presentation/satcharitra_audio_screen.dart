@@ -112,9 +112,11 @@ class _ChapterTile extends ConsumerWidget {
     final audioState = ref.watch(chapterAudioProvider);
     final isThisTrack = audioState.track?.fileName == track.fileName;
     final isDownloading = isThisTrack && audioState.status == ChapterAudioStatus.downloading;
+    final isBuffering = isThisTrack && audioState.status == ChapterAudioStatus.buffering;
     final isPlaying = isThisTrack && audioState.status == ChapterAudioStatus.playing;
     final isActive = isThisTrack && audioState.isActive;
     final isError = isThisTrack && audioState.status == ChapterAudioStatus.error;
+    final isLoading = isDownloading || isBuffering;
 
     // Show error snackbar when playback fails
     if (isError && audioState.errorMessage != null) {
@@ -192,11 +194,11 @@ class _ChapterTile extends ConsumerWidget {
                       color: AppColors.saffron.withOpacity(0.10),
                       shape: BoxShape.circle,
                     ),
-                    child: isDownloading
+                    child: isLoading
                         ? Padding(
                             padding: const EdgeInsets.all(10),
                             child: CircularProgressIndicator(
-                              value: audioState.downloadProgress,
+                              value: isDownloading ? audioState.downloadProgress : null,
                               strokeWidth: 2.5,
                               color: AppColors.saffron,
                             ),
@@ -227,6 +229,19 @@ class _ChapterTile extends ConsumerWidget {
                 'Loading… ${(audioState.downloadProgress! * 100).toStringAsFixed(0)}%',
                 style: const TextStyle(fontSize: 11, color: AppColors.mediumText),
               ),
+            ]
+            else if (isBuffering) ...[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(
+                backgroundColor: AppColors.lightGrey,
+                color: AppColors.saffron,
+                minHeight: 3,
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Loading audio…',
+                style: TextStyle(fontSize: 11, color: AppColors.mediumText),
+              ),
             ],
           ],
         ),
@@ -256,7 +271,9 @@ class _SatcharitaMiniPlayer extends ConsumerWidget {
     if (track == null) return const SizedBox.shrink();
 
     final isDownloading = audioState.status == ChapterAudioStatus.downloading;
+    final isBuffering = audioState.status == ChapterAudioStatus.buffering;
     final isPlaying = audioState.status == ChapterAudioStatus.playing;
+    final isLoading = isDownloading || isBuffering;
     final total = audioState.total;
     final position = audioState.position;
     final sliderMax =
@@ -315,6 +332,12 @@ class _SatcharitaMiniPlayer extends ConsumerWidget {
                         style: const TextStyle(
                             fontSize: 11, color: AppColors.mediumText),
                       )
+                    else if (isBuffering)
+                      const Text(
+                        'Loading audio…',
+                        style: TextStyle(
+                            fontSize: 11, color: AppColors.mediumText),
+                      )
                     else
                       Text(
                         '${_fmt(position)}  /  ${_fmt(total)}',
@@ -324,12 +347,11 @@ class _SatcharitaMiniPlayer extends ConsumerWidget {
                   ],
                 ),
               ),
-              if (isDownloading)
-                SizedBox(
+              if (isLoading)
+                const SizedBox(
                   width: 32,
                   height: 32,
                   child: CircularProgressIndicator(
-                    value: audioState.downloadProgress,
                     strokeWidth: 2.5,
                     color: AppColors.saffron,
                   ),
@@ -354,7 +376,7 @@ class _SatcharitaMiniPlayer extends ConsumerWidget {
               ),
             ],
           ),
-          if (!isDownloading && total.inSeconds > 0)
+          if (!isLoading && total.inSeconds > 0)
             SliderTheme(
               data: SliderThemeData(
                 trackHeight: 3,

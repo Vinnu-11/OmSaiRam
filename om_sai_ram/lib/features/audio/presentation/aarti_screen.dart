@@ -151,9 +151,12 @@ class _TrackTile extends ConsumerWidget {
     final isThisTrack = audioState.track?.fileName == track.fileName;
     final isDownloading =
         isThisTrack && audioState.status == ChapterAudioStatus.downloading;
+    final isBuffering =
+        isThisTrack && audioState.status == ChapterAudioStatus.buffering;
     final isPlaying =
         isThisTrack && audioState.status == ChapterAudioStatus.playing;
     final isActive = isThisTrack && audioState.isActive;
+    final isLoading = isDownloading || isBuffering;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -183,12 +186,12 @@ class _TrackTile extends ConsumerWidget {
                     : AppColors.saffron.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: isDownloading
+              child: isLoading
                   ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                        value: audioState.downloadProgress,
+                        value: isDownloading ? audioState.downloadProgress : null,
                         strokeWidth: 2.5,
                         color: Colors.white,
                       ),

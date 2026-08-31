@@ -1,6 +1,7 @@
 // Om Sai Ram
 // Login screen — email/password login with social sign-in options.
 
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,7 +26,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -33,6 +34,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   late AnimationController _animController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  // Shake animation for error feedback
+  late AnimationController _shakeController;
+
+  // Retry tracking
+  static const _maxAttempts = 5;
+  static const _lockoutSeconds = 30;
+  int _attemptCount = 0;
+  DateTime? _lockedUntil;
+  String? _inlineError;
 
   @override
   void initState() {
@@ -52,21 +63,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       parent: _animController,
       curve: Curves.easeOutCubic,
     ));
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
     _animController.forward();
   }
 
   @override
   void dispose() {
     _animController.dispose();
+    _shakeController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
+  bool get _isLockedOut {
+    if (_lockedUntil == null) return false;
+    if (DateTime.now().isBefore(_lockedUntil!)) return true;
+    _lockedUntil = null;
+    _attemptCount = 0;
+    return false;
+  }
+
+  int get _lockoutRemaining =>
+      _lockedUntil?.difference(DateTime.now()).inSeconds ?? 0;
+
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _inlineError = null);
 
-    // Dismiss keyboard before making the request
+    // Check lockout
+    if (_isLockedOut) {
+      setState(() => _inlineError =
+          'Too many failed attempts. Please wait $_lockoutRemaining seconds.');
+      _shakeController.forward(from: 0);
+      return;
+    }
+
     FocusScope.of(context).unfocus();
 
     await ref.read(authStateProvider.notifier).login(
@@ -75,30 +110,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         );
   }
 
+  void _onLoginError(String error) {
+    _attemptCount++;
+    if (_attemptCount >= _maxAttempts) {
+      _lockedUntil = DateTime.now().add(const Duration(seconds: _lockoutSeconds));
+      setState(() => _inlineError =
+          'Too many failed attempts. Please wait $_lockoutSeconds seconds before trying again.');
+    } else {
+      final remaining = _maxAttempts - _attemptCount;
+      setState(() => _inlineError =
+          '$error\n$remaining attempt${remaining == 1 ? '' : 's'} remaining.');
+    }
+    _shakeController.forward(from: 0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final tr = S(ref.watch(languageProvider).appLanguage.code);
     final authState = ref.watch(authStateProvider);
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // Show error snackbar if auth failed
+    // Show inline error + snackbar if auth failed
     ref.listen<AuthState>(authStateProvider, (prev, next) {
       if (next.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Expanded(child: Text(next.error!)),
-              ],
-            ),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
+        _onLoginError(next.error!);
         ref.read(authStateProvider.notifier).clearError();
       }
     });
@@ -248,6 +283,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           ),
 
                           const SizedBox(height: 8),
+
+                          // Inline error banner
+                          AnimatedBuilder(
+                            animation: _shakeController,
+                            builder: (context, child) {
+                              final sineValue = sin(4 * pi * _shakeController.value);
+                              return Transform.translate(
+                                offset: Offset(sineValue * 8, 0),
+                                child: child,
+                              );
+                            },
+                            child: AnimatedSize(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              child: _inlineError != null
+                                  ? Container(
+                                      width: double.infinity,
+                                      margin: const EdgeInsets.only(bottom: 14),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.error.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: AppColors.error.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(Icons.error_outline_rounded,
+                                              color: AppColors.error, size: 20),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              _inlineError!,
+                                              style: TextStyle(
+                                                color: AppColors.error,
+                                                fontSize: 13,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ),
 
                           // Login button
                           SizedBox(

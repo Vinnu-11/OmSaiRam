@@ -19,6 +19,7 @@ class AppConstants {
   static const String socialAuthEndpoint = '/auth/social';
   static const String phoneSendOtpEndpoint = '/auth/phone/send-otp';
   static const String phoneVerifyOtpEndpoint = '/auth/phone/verify-otp';
+  static const String changePasswordEndpoint = '/auth/change-password';
 
   // Group endpoints
   static const String groupsEndpoint = '/groups';
