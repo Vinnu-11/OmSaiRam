@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/chapter_units.dart';
 import '../../../core/services/api_client.dart';
 import 'chapter_model.dart';
 
@@ -38,14 +39,44 @@ class ContentRepository {
     return _cache[language]!;
   }
 
-  /// Returns a single chapter by its number for the given language.
+  /// Returns the entry covering Marathi adhyaya [chapterNumber] (entries may
+  /// span a range, e.g. "16-17", in translations that merge adhyayas).
   Future<Chapter?> getChapter(int chapterNumber, {String language = 'en'}) async {
     final chapters = await getChapters(language: language);
-    try {
-      return chapters.firstWhere((c) => c.number == chapterNumber);
-    } catch (_) {
-      return null;
+    for (final c in chapters) {
+      if (c.covers(chapterNumber)) return c;
     }
+    // Translation lacks this adhyaya (e.g. Gunaji English folds 50 into 39):
+    // fall back to the Marathi original.
+    return language == 'mr' ? null : getChapter(chapterNumber, language: 'mr');
+  }
+
+  /// Assemble separate Marathi originals for a combined group assignment,
+  /// without changing the standalone chapter list.
+  Future<Chapter?> getAssignmentChapter(int chapterNumber,
+      {String language = 'en'}) async {
+    final start = ChapterUnits.start(chapterNumber);
+    final end = ChapterUnits.end(chapterNumber);
+    final parts = <Chapter>[];
+    for (var n = start; n <= end; n++) {
+      final chapter = await getChapter(n, language: language);
+      if (chapter == null) return null;
+      if (!parts.any((part) => part.number == chapter.number)) {
+        parts.add(chapter);
+      }
+    }
+    if (parts.length == 1) return parts.first;
+    final first = parts.first;
+    return Chapter(
+      id: first.id,
+      number: start,
+      chapterLabel: ChapterUnits.label(start),
+      title: first.title,
+      content: parts.map((part) =>
+          '${part.heading ?? 'Chapter ${part.number}'}\n\n${part.content}').join('\n\n'),
+      language: first.language,
+      version: first.version,
+    );
   }
 
   /// Loads chapters from the bundled JSON asset file.
@@ -78,8 +109,12 @@ class ContentRepository {
         final chaptersResponse = await _apiClient.get(
           '${AppConstants.chaptersEndpoint}/$language',
         );
-        final List<dynamic> data = chaptersResponse.data['chapters'];
-        _cache[language] = data.map((j) => Chapter.fromJson(j)).toList();
+        // Backend returns a bare JSON list of chapters.
+        final List<dynamic> data = chaptersResponse.data;
+        // Never let a partial server copy replace the full bundled book.
+        if (data.length >= (cached?.length ?? 0)) {
+          _cache[language] = data.map((j) => Chapter.fromJson(j)).toList();
+        }
       }
     } catch (_) {
       // Server unavailable — continue with bundled content

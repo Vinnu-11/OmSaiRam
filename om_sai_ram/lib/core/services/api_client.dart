@@ -22,6 +22,9 @@ class ApiClient {
   late final Dio _dio;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
+  /// Called when the refresh token is missing or rejected (user must log in again).
+  void Function()? onSessionExpired;
+
   ApiClient() {
     _dio = Dio(
       BaseOptions(
@@ -46,9 +49,10 @@ class ApiClient {
           handler.next(options);
         },
         onError: (error, handler) async {
-          // Skip token refresh for auth endpoints — let the caller handle the error
+          // Skip token refresh for login/OTP endpoints — let the caller handle the error.
+          // /auth/me is a normal authenticated call and must refresh like any other.
           final path = error.requestOptions.path;
-          final isAuthRequest = path.startsWith('/auth/');
+          final isAuthRequest = path.startsWith('/auth/') && path != '/auth/me';
           if (error.response?.statusCode == 401 && !isAuthRequest) {
             final refreshed = await _refreshToken();
             if (refreshed) {
@@ -71,7 +75,10 @@ class ApiClient {
     try {
       final refreshToken =
           await _storage.read(key: AppConstants.refreshTokenKey);
-      if (refreshToken == null) return false;
+      if (refreshToken == null) {
+        onSessionExpired?.call();
+        return false;
+      }
 
       final response = await Dio().post(
         '${AppConstants.apiBaseUrl}${AppConstants.refreshEndpoint}',
@@ -89,6 +96,9 @@ class ApiClient {
         );
         return true;
       }
+    } on DioException catch (e) {
+      // Network errors keep the session; a rejected refresh token ends it.
+      if (e.response?.statusCode == 401) onSessionExpired?.call();
     } catch (_) {
       // Refresh failed — user needs to re-login
     }

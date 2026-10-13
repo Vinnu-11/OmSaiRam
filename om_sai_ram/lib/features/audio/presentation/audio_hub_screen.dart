@@ -21,15 +21,17 @@ class AudioHubScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/'),
+        ),
         title: Text(tr.audio, style: const TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: false,
       ),
       body: SafeArea(
-        child: Padding(
+        child: ListView(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          children: [
               // Baba photo from sai.org.in
               ClipRRect(
                 borderRadius: BorderRadius.circular(20),
@@ -88,8 +90,7 @@ class AudioHubScreen extends ConsumerWidget {
                 onTap: () => context.go(AppRoutes.satcharitaAudio),
               ),
 
-            ],
-          ),
+          ],
         ),
       ),
     );

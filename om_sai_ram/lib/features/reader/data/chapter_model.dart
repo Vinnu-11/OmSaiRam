@@ -28,6 +28,12 @@ class Chapter extends Equatable {
     this.version = 1,
   });
 
+  /// Last Marathi adhyaya covered by this entry ("16-17" -> 17).
+  int get lastNumber =>
+      int.tryParse((chapterLabel ?? '').split('-').last) ?? number;
+
+  bool covers(int n) => n >= number && n <= lastNumber;
+
   factory Chapter.fromJson(Map<String, dynamic> json) {
     return Chapter(
       id: json['id'] as int,

@@ -269,7 +269,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             alignment: Alignment.centerRight,
                             child: TextButton(
                               onPressed: () {
-                                // TODO: Navigate to forgot password screen
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Password reset coming soon')),
+                                );
                               },
                               style: TextButton.styleFrom(
                                 foregroundColor: AppColors.saffron,
@@ -389,7 +391,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       label: tr.signInWithGoogle,
                       icon: Icons.g_mobiledata_rounded,
                       onPressed: () {
-                        // TODO: Implement Google Sign-In
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Google Sign-In coming soon')),
+                        );
                       },
                     ),
                     const SizedBox(height: 10),
@@ -397,7 +401,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       label: tr.signInWithApple,
                       icon: Icons.apple_rounded,
                       onPressed: () {
-                        // TODO: Implement Apple Sign-In
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Apple Sign-In coming soon')),
+                        );
                       },
                     ),
 

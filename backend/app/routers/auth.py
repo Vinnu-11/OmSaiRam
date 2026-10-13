@@ -2,15 +2,17 @@
 # Auth router — registration, login, social auth, OTP phone auth, and token refresh.
 
 import logging
-import random
+import secrets
 import string
+import time
+from collections import defaultdict, deque
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import User, PhoneOtp
+from ..models import User, PhoneOtp, GroupMember, ReadingAssignment
 from ..schemas import (
     RegisterRequest,
     LoginRequest,
@@ -38,6 +40,25 @@ OTP_EXPIRY_MINUTES = 10
 OTP_LENGTH = 6
 
 router = APIRouter()
+
+# ponytail: in-process limiter; move to Redis/slowapi when running multiple workers.
+_attempts: dict[str, deque] = defaultdict(deque)
+
+
+def _check_limit(key: str, limit: int, window_s: int) -> None:
+    q = _attempts[key]
+    cutoff = time.monotonic() - window_s
+    while q and q[0] < cutoff:
+        q.popleft()
+    if len(q) >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many attempts. Please try again later.",
+        )
+
+
+def _record_attempt(key: str) -> None:
+    _attempts[key].append(time.monotonic())
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -93,14 +114,11 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     Raises 401 if credentials are invalid.
     """
     email = request.email.lower()
+    limit_key = f"login:{email}"
+    _check_limit(limit_key, limit=10, window_s=15 * 60)
     user = db.query(User).filter(User.email == email).first()
-    if not user or not user.password_hash:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
-
-    if not verify_password(request.password, user.password_hash):
+    if not user or not user.password_hash or not verify_password(request.password, user.password_hash):
+        _record_attempt(limit_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
@@ -179,6 +197,9 @@ def send_otp(request: PhoneSendOtpRequest, db: Session = Depends(get_db)):
     For development, the OTP is logged to the server console.
     """
     phone = request.phone_number
+    _check_limit(f"send:{phone}", limit=5, window_s=60 * 60)
+    _record_attempt(f"send:{phone}")
+    _attempts.pop(f"verify:{phone}", None)
 
     # Invalidate any previous unused OTPs for this number
     db.query(PhoneOtp).filter(
@@ -188,7 +209,7 @@ def send_otp(request: PhoneSendOtpRequest, db: Session = Depends(get_db)):
     db.commit()
 
     # Generate a 6-digit OTP
-    otp = "".join(random.choices(string.digits, k=OTP_LENGTH))
+    otp = "".join(secrets.choice(string.digits) for _ in range(OTP_LENGTH))
     expires_at = datetime.utcnow() + timedelta(minutes=OTP_EXPIRY_MINUTES)
 
     otp_record = PhoneOtp(
@@ -215,6 +236,8 @@ def verify_otp(request: PhoneVerifyOtpRequest, db: Session = Depends(get_db)):
     If no account exists and no name is provided, raises 404 so the
     client can ask for the user's name before retrying.
     """
+    limit_key = f"verify:{request.phone_number}"
+    _check_limit(limit_key, limit=5, window_s=OTP_EXPIRY_MINUTES * 60)
     # Find the latest unused, unexpired OTP for this number
     otp_record = (
         db.query(PhoneOtp)
@@ -228,19 +251,16 @@ def verify_otp(request: PhoneVerifyOtpRequest, db: Session = Depends(get_db)):
     )
 
     if not otp_record or not verify_password(request.otp, otp_record.otp_hash):
+        _record_attempt(limit_key)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired OTP. Please request a new one.",
         )
 
-    # Mark OTP as used
-    otp_record.is_used = True
-    db.commit()
-
-    # Find or create the user
     user = db.query(User).filter(User.phone_number == request.phone_number).first()
 
     if not user:
+        # Keep the OTP valid so the client can retry with a name.
         if not request.name:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -252,8 +272,10 @@ def verify_otp(request: PhoneVerifyOtpRequest, db: Session = Depends(get_db)):
             auth_provider="phone",
         )
         db.add(user)
-        db.commit()
-        db.refresh(user)
+
+    otp_record.is_used = True
+    db.commit()
+    db.refresh(user)
 
     access_token = create_access_token(user.id)
     refresh_token = create_refresh_token(user.id)
@@ -280,7 +302,7 @@ def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
 
     user_id = payload.get("sub")
     user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+    if not user or user.auth_provider == "deleted":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
@@ -313,6 +335,13 @@ def update_profile(
     if not updates:
         raise HTTPException(status_code=400, detail="No fields to update")
 
+    if "name" in updates and not updates["name"]:
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+    # Clearing the login identifier would lock the user out.
+    login_field = {"email": "email", "phone": "phone_number"}.get(current_user.auth_provider)
+    if login_field and login_field in updates and not updates[login_field]:
+        raise HTTPException(status_code=400, detail=f"Cannot remove the {login_field.replace('_', ' ')} you log in with")
+
     if "email" in updates and updates["email"]:
         email = updates["email"].lower()
         existing = db.query(User).filter(User.email == email, User.id != current_user.id).first()
@@ -333,6 +362,35 @@ def update_profile(
     db.commit()
     db.refresh(current_user)
     return UserResponse.model_validate(current_user)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete the account: drop memberships/assignments and scrub personal data.
+
+    The row is kept (anonymised) so chat messages and highlights stay consistent.
+    """
+    if db.query(GroupMember).filter(
+        GroupMember.user_id == current_user.id, GroupMember.role == "admin"
+    ).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You are admin of a group. Transfer admin or delete the group first.",
+        )
+
+    for a in db.query(ReadingAssignment).filter(ReadingAssignment.user_id == current_user.id):
+        db.delete(a)
+    db.query(GroupMember).filter(GroupMember.user_id == current_user.id).delete()
+    current_user.email = None
+    current_user.phone_number = None
+    current_user.password_hash = None
+    current_user.avatar_url = None
+    current_user.name = "Deleted user"
+    current_user.auth_provider = "deleted"
+    db.commit()
 
 
 @router.post("/change-password", status_code=status.HTTP_200_OK)

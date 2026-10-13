@@ -78,3 +78,11 @@ final chapterProvider =
   final repo = ref.read(contentRepositoryProvider);
   return repo.getChapter(chapterNumber, language: lang);
 });
+
+/// A group assignment includes all original adhyayas in its combined range.
+final assignmentChapterProvider =
+    FutureProvider.family<Chapter?, int>((ref, chapterNumber) async {
+  final lang = ref.watch(languageProvider).readerLanguage.code;
+  return ref.read(contentRepositoryProvider)
+      .getAssignmentChapter(chapterNumber, language: lang);
+});

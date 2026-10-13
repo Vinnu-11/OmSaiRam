@@ -52,8 +52,8 @@ def scrape_festivals() -> list[dict]:
                 if date_text and title_text and not title_text.lower().startswith("day"):
                     event_date = _parse_date(date_text)
                     events.append({
-                        "title": title_text,
-                        "date_label": date_text,
+                        "title": title_text[:255],
+                        "date_label": date_text[:100],
                         "event_date": event_date,
                         "description": description,
                     })
@@ -74,7 +74,7 @@ def scrape_festivals() -> list[dict]:
             description = desc_el.get_text(strip=True) if desc_el else None
             if title:
                 events.append({
-                    "title": title,
+                    "title": title[:255],
                     "date_label": date_str,
                     "event_date": event_date,
                     "description": description,

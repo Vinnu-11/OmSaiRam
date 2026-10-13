@@ -1,11 +1,11 @@
 {
-    "name": "om_sai_ram",
-    "short_name": "om_sai_ram",
+    "name": "Om Sai Ram",
+    "short_name": "Om Sai Ram",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFF8F0",
+    "theme_color": "#FF7722",
+    "description": "Read Shri Sai Satcharita together with your group.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -6,9 +6,9 @@
 class AppConstants {
   AppConstants._();
 
-  // API Configuration
-  // Change this to your production URL when deploying
-  static const String baseUrl = 'http://localhost:8000'; // Web/desktop dev
+  // API Configuration — override per build: --dart-define=API_BASE_URL=https://api.example.org
+  static const String baseUrl =
+      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');
   static const String apiVersion = '/api/v1';
   static const String apiBaseUrl = '$baseUrl$apiVersion';
 
@@ -48,7 +48,7 @@ class AppConstants {
   static const String userDataKey = 'user_data';
 
   // Sai Satcharita
-  static const int totalChapters = 50;
+  static const int totalChapters = 53;
   static const int saptahDays = 7;
 
   // Pagination

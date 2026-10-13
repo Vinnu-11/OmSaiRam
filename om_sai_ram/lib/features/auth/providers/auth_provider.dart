@@ -1,7 +1,10 @@
 // Om Sai Ram
 // Auth state provider — manages authentication state across the app.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/services/api_client.dart';
+import '../../../core/services/notifications_service.dart';
 import '../data/auth_repository.dart';
 import '../data/user_model.dart';
 
@@ -28,7 +31,9 @@ class AuthState {
 /// Global auth state provider — watched by the router for redirects.
 final authStateProvider =
     StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(repository: ref.read(authRepositoryProvider));
+  final notifier = AuthNotifier(repository: ref.read(authRepositoryProvider));
+  ref.read(apiClientProvider).onSessionExpired = notifier.logout;
+  return notifier;
 });
 
 /// Notifier that manages auth state transitions.
@@ -149,10 +154,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Logs out the current user and clears tokens.
+  /// Logs out the current user, clears tokens and this account's reminders.
   Future<void> logout() async {
     await _repository.logout();
+    if (!mounted) return;
     state = const AuthState();
+    if (!kIsWeb) {
+      try {
+        await NotificationsService().cancelAllGroupNotifications();
+      } catch (_) {}
+    }
+  }
+
+  /// Deletes the account on the server, then logs out. Throws on failure.
+  Future<void> deleteAccount() async {
+    await _repository.deleteAccount();
+    await logout();
   }
 
   /// Updates the current user's profile fields.
@@ -207,7 +224,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
 
     // HTTP status-specific errors — messages vary by flow
-    if (errStr.contains('409')) {
+    // Backend returns 400 for duplicate email/phone on register.
+    if (errStr.contains('409') || (flow == _AuthFlow.signup && errStr.contains('400'))) {
       return 'An account with this email or mobile number already exists.';
     }
     if (errStr.contains('404')) {

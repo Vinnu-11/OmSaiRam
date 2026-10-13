@@ -91,12 +91,21 @@ class NotificationsService {
     );
     const ios = DarwinNotificationDetails();
 
-    await _plugin.periodicallyShowWithDuration(
+    final now = DateTime.now();
+    var first = DateTime(now.year, now.month, now.day, hour, minute);
+    if (!first.isAfter(now)) first = first.add(const Duration(days: 1));
+
+    await _plugin.zonedSchedule(
       _kDailyVerseNotifId,
       'Om Sai Ram 🙏',
       verse,
-      const Duration(hours: 24),
+      tz.TZDateTime.from(first, tz.local),
       const NotificationDetails(android: android, iOS: ios),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      // ponytail: tz.local is UTC (no device tz lookup), so the time shifts 1h across DST changes.
+      matchDateTimeComponents: DateTimeComponents.time,
     );
 
     final prefs = await SharedPreferences.getInstance();
@@ -163,7 +172,7 @@ class NotificationsService {
       // Skip assignments with no scheduled date.
       if (a.scheduledDate == null) continue;
 
-      final chapterLabel = a.chapterTitle ?? 'Chapter ${a.chapterNumber ?? a.chapterId}';
+      final chapterLabel = 'Chapter ${a.displayChapterLabel}${a.chapterTitle == null ? '' : ' — ${a.chapterTitle}'}';
       final deadline = schedule.deadlineDateTime(a.scheduledDate!);
       final reminder = schedule.reminderDateTime(a.scheduledDate!);
       final now = DateTime.now();
@@ -212,11 +221,13 @@ class NotificationsService {
     }
   }
 
-  /// Cancel ALL group reading reminders (e.g. on logout).
-  Future<void> cancelAllGroupNotifications(List<String> assignmentIds) async {
+  /// Cancel ALL group reading reminders (e.g. on logout); the daily verse is kept.
+  Future<void> cancelAllGroupNotifications() async {
     await init();
-    for (final id in assignmentIds) {
-      await cancelGroupNotificationsForAssignment(id);
+    await _plugin.cancelAll();
+    if (await isEnabled()) {
+      final t = await getScheduledTime();
+      await scheduleDailyVerse(hour: t.hour, minute: t.minute);
     }
   }
 

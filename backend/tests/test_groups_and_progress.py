@@ -765,9 +765,9 @@ class TestAutoSchedule:
         assert response.status_code == 201
         assignments = response.json()["assignments"]
         chapter_nums = sorted(a["chapter_number"] for a in assignments)
-        # Ch.53 stays, Ch.54 wraps to Ch.1
-        assert 53 in chapter_nums
-        assert 1 in chapter_nums
+        # Ch.53 belongs to the combined 51-53 unit; the next unit wraps to 1.
+        assert chapter_nums == [1, 51]
+        assert next(a for a in assignments if a["chapter_number"] == 51)["chapter_label"] == "51-53"
 
     def test_auto_schedule_no_duplicate_on_rerun(self):
         """Running auto-schedule twice doesn't create duplicate assignments."""
@@ -932,3 +932,69 @@ class TestAdvanceWeek:
         client.post(f"/api/v1/assignments/advance-week/{group_id}", headers=_auth_header(token))
         resp = client.post(f"/api/v1/assignments/advance-week/{group_id}", headers=_auth_header(token))
         assert resp.json()["current_week"] == 3
+
+
+class TestRegressions:
+    """Bugs found in QA pass."""
+
+    def test_group_lifecycle_corner_cases(self):
+        token, group_id, user_ids = _create_group_with_members(2)
+        member = _register_and_get_token("Late", f"late_{os.urandom(4).hex()}@test.com")
+        code = client.get(f"/api/v1/groups/{group_id}", headers=_auth_header(token)).json()["group"]["invite_code"]
+        # Invite codes are case/space-insensitive
+        assert client.post("/api/v1/groups/join", json={"invite_code": f" {code.lower()} "}, headers=_auth_header(member)).status_code == 200
+
+        client.post("/api/v1/assignments/auto-schedule", json={"group_id": group_id, "weeks_ahead": 1}, headers=_auth_header(token))
+        aid = client.get(f"/api/v1/assignments/group/{group_id}", headers=_auth_header(token)).json()[0]["id"]
+        # Non-members cannot read progress
+        outsider = _register_and_get_token("Out", f"out_{os.urandom(4).hex()}@test.com")
+        assert client.get(f"/api/v1/progress/{aid}", headers=_auth_header(outsider)).status_code == 403
+        # Whitespace-only chat is rejected
+        assert client.post(f"/api/v1/groups/{group_id}/messages", json={"content": "   "}, headers=_auth_header(token)).status_code == 422
+        # Deleting assignments/groups with progress rows must not 500
+        assert client.delete(f"/api/v1/assignments/{aid}", headers=_auth_header(token)).status_code == 204
+        assert client.delete(f"/api/v1/groups/{group_id}", headers=_auth_header(token)).status_code == 204
+
+    def test_profile_cannot_drop_login_email(self):
+        token = _register_and_get_token("Keep", f"keep_{os.urandom(4).hex()}@test.com")
+        assert client.patch("/api/v1/auth/me", json={"email": None}, headers=_auth_header(token)).status_code == 400
+        assert client.patch("/api/v1/auth/me", json={"name": None}, headers=_auth_header(token)).status_code == 400
+
+    def test_phone_signup_retry_with_name_reuses_otp(self, caplog):
+        import logging, re
+        phone = "+91" + str(7000000000 + int.from_bytes(os.urandom(3), "big"))
+        with caplog.at_level(logging.INFO, logger="app.routers.auth"):
+            client.post("/api/v1/auth/phone/send-otp", json={"phone_number": phone})
+        otp = re.search(r": (\d{6}) ", caplog.text).group(1)
+        body = {"phone_number": phone, "otp": otp}
+        assert client.post("/api/v1/auth/phone/verify-otp", json=body).status_code == 404
+        assert client.post("/api/v1/auth/phone/verify-otp", json={**body, "name": "Neo"}).status_code == 200
+
+    def test_brute_force_is_rate_limited(self):
+        email = f"bf_{os.urandom(4).hex()}@test.com"
+        _register_and_get_token("BF", email)
+        codes = [client.post("/api/v1/auth/login", json={"email": email, "password": "wrongpass1"}).status_code for _ in range(11)]
+        assert codes[:10] == [401] * 10 and codes[10] == 429
+
+        phone = "+91" + str(7000000000 + int.from_bytes(os.urandom(3), "big"))
+        client.post("/api/v1/auth/phone/send-otp", json={"phone_number": phone})
+        codes = [client.post("/api/v1/auth/phone/verify-otp", json={"phone_number": phone, "otp": "000000"}).status_code for _ in range(6)]
+        assert codes[5] == 429
+
+    def test_delete_account_and_member_cleanup(self):
+        token, group_id, _ = _create_group_with_members(1)
+        email = f"del_{os.urandom(4).hex()}@test.com"
+        member = _register_and_get_token("Del", email)
+        code = client.get(f"/api/v1/groups/{group_id}", headers=_auth_header(token)).json()["group"]["invite_code"]
+        client.post("/api/v1/groups/join", json={"invite_code": code}, headers=_auth_header(member))
+        client.post("/api/v1/assignments/auto-schedule", json={"group_id": group_id, "weeks_ahead": 1}, headers=_auth_header(token))
+
+        # Admin must hand over / delete groups first
+        assert client.delete("/api/v1/auth/me", headers=_auth_header(token)).status_code == 400
+        assert client.delete("/api/v1/auth/me", headers=_auth_header(member)).status_code == 204
+        assert client.get("/api/v1/auth/me", headers=_auth_header(member)).status_code == 401
+        assert client.post("/api/v1/auth/login", json={"email": email, "password": "password123"}).status_code == 401
+        names = [m["name"] for m in client.get(f"/api/v1/groups/{group_id}", headers=_auth_header(token)).json()["members"]]
+        assert "Del" not in names
+        assigned = {a["user_id"] for a in client.get(f"/api/v1/assignments/group/{group_id}", headers=_auth_header(token)).json()}
+        assert len(assigned) == 1

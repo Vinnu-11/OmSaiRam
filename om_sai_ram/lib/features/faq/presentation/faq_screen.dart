@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/l10n/s.dart';
 import '../../../core/providers/language_provider.dart';
@@ -23,6 +24,10 @@ class FaqScreen extends ConsumerWidget {
     final tr = S(ref.watch(languageProvider).appLanguage.code);
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/'),
+        ),
         title: Text(tr.frequentlyAskedQuestions),
       ),
       body: ListView(

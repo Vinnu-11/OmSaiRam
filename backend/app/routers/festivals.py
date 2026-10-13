@@ -8,7 +8,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import Festival
+from ..middleware.auth import get_current_user
+from ..models import Festival, User
 from ..services.festival_scraper import refresh_festivals_in_db
 
 router = APIRouter()
@@ -53,7 +54,7 @@ def get_festivals(db: Session = Depends(get_db)):
 
 
 @router.post("/refresh")
-def refresh_festivals(db: Session = Depends(get_db)):
+def refresh_festivals(db: Session = Depends(get_db), _user: User = Depends(get_current_user)):
     """Force a re-scrape of festivals from sai.org.in.
 
     Admin/internal endpoint to manually trigger an update.

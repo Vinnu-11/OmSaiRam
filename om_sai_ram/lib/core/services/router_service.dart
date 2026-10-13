@@ -60,17 +60,18 @@ class AppRoutes {
 
 /// GoRouter provider — rebuilds when auth state changes.
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  // Only login/logout should rebuild the router; loading/error changes would reset navigation.
+  final isLoggedIn = ref.watch(authStateProvider.select((s) => s.isAuthenticated));
 
   return GoRouter(
     initialLocation: AppRoutes.home,
     debugLogDiagnostics: true,
 
     redirect: (context, state) {
-      final isLoggedIn = authState.isAuthenticated;
       final location = state.matchedLocation;
       final isOnAuthPage = location == AppRoutes.login ||
-          location == AppRoutes.signup;
+          location == AppRoutes.signup ||
+          location == AppRoutes.phoneLogin;
 
       // If accessing a protected route without login → redirect to login
       if (!isLoggedIn && AppRoutes.requiresAuth(location)) {
@@ -131,9 +132,11 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: ':chapterId',
                 builder: (context, state) {
+                  final chapterId = int.tryParse(state.pathParameters['chapterId']!);
+                  if (chapterId == null) return const ChaptersScreen();
                   final extra = state.extra as Map<String, dynamic>?;
                   return ChapterReaderScreen(
-                    chapterId: int.parse(state.pathParameters['chapterId']!),
+                    chapterId: chapterId,
                     assignmentId: extra?['assignmentId'] as String?,
                     groupId: extra?['groupId'] as String?,
                     chapterTitle: extra?['chapterTitle'] as String?,

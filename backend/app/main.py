@@ -1,15 +1,18 @@
 # Om Sai Ram
 # FastAPI application entry point.
 
+import json
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .database import engine, Base
+from .database import engine, Base, SessionLocal
+from .models import Chapter
 from .routers import auth, groups, assignments, progress, content, group_chat
 from .routers import festivals
 from .routers import notification_schedule
@@ -21,10 +24,28 @@ logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler()
 
 
+def _ensure_chapter_index() -> None:
+    """Seed one row per adhyaya so assignments have chapters to reference."""
+    with SessionLocal() as db:
+        if db.query(Chapter.id).first() is not None:
+            return
+        titles = json.loads((Path(__file__).parent / "data" / "chapter_titles.json").read_text())
+        # version=0 keeps the app on its bundled text (it only pulls server content with a higher version).
+        db.add_all(
+            Chapter(number=int(n), title=t, content="", language="mr", version=0)
+            for n, t in titles.items()
+        )
+        db.commit()
+        logger.info("Seeded %d chapter index rows.", len(titles))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup/shutdown lifecycle. Creates DB tables on startup."""
+    if settings.jwt_secret_key == "CHANGE-THIS-IN-PRODUCTION" and not settings.debug:
+        raise RuntimeError("JWT_SECRET_KEY is not set (set DEBUG=true to run locally without it).")
     Base.metadata.create_all(bind=engine)
+    _ensure_chapter_index()
 
     scheduler.add_job(
         refresh_festivals_in_db,
@@ -37,7 +58,8 @@ async def lifespan(app: FastAPI):
     scheduler.start()
     logger.info("Festival scraper scheduled (daily at midnight).")
 
-    refresh_festivals_in_db()
+    # Initial scrape in the background so startup isn't blocked by the network.
+    scheduler.add_job(refresh_festivals_in_db, id="scrape_festivals_startup")
 
     yield
 
@@ -57,7 +79,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_credentials=True,
+    allow_credentials=False,  # bearer tokens, no cookies
     allow_methods=["*"],
     allow_headers=["*"],
 )

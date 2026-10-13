@@ -1,6 +1,7 @@
 // Om Sai Ram
 // Profile screen — user profile, settings, and app info.
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -89,7 +90,7 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  user?.email ?? '',
+                  user?.email ?? user?.phoneNumber ?? '',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.lightText,
                       ),
@@ -227,7 +228,7 @@ class ProfileScreen extends ConsumerWidget {
 
           Container(
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.lightGrey),
             ),
@@ -254,7 +255,7 @@ class ProfileScreen extends ConsumerWidget {
           // Logout button
           Container(
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.error.withOpacity(0.2)),
             ),
@@ -296,10 +297,51 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
 
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton(
+              onPressed: () => _confirmDeleteAccount(context, ref),
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              child: const Text('Delete account'),
+            ),
+          ),
+
           const SizedBox(height: 16),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete account?'),
+        content: const Text(
+          'This permanently removes your profile, group memberships and reading '
+          'assignments. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await ref.read(authStateProvider.notifier).deleteAccount();
+    } on DioException catch (e) {
+      final detail = e.response?.data is Map ? e.response!.data['detail'] : null;
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(detail?.toString() ?? 'Could not delete account. Please try again.')),
+        );
+      }
+    }
   }
 
   void _showLanguageDialog(

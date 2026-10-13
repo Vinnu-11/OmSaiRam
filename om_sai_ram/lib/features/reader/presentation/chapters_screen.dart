@@ -204,7 +204,7 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
             delegate: SliverChildBuilderDelegate(
               (context, index) {
                 final chapter = filtered[index];
-                final isCompleted = progress.completedChapters.contains(chapter.number);
+                final isCompleted = progress.completedChapters.any(chapter.covers);
                 final isBookmarked = progress.bookmarks.contains(chapter.number);
                 final isResume = progress.resumeChapter == chapter.number;
 
@@ -371,7 +371,7 @@ class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
 
   @override
   Widget build(BuildContext context) {
-    final appLang = ref.watch(languageProvider).appLanguage;
+    ref.watch(languageProvider);
 
     return DraggableScrollableSheet(
       expand: false,

@@ -1,0 +1,58 @@
+================================================================================
+SAI SATCHARITA CONTENT PROOFREADING REPORT
+================================================================================
+
+
+1. ENGLISH SUBHEADINGS IN NON-ENGLISH CONTENT
+--------------------------------------------------
+  bn: 276 English headers
+  de: 267 English headers
+  es: 267 English headers
+  fr: 267 English headers
+  gu: 267 English headers
+  hi: 267 English headers
+  kn: 267 English headers
+  kok: 267 English headers
+  ml: 267 English headers
+  mr: 267 English headers
+  ne: 272 English headers
+  or: 267 English headers
+  pa: 267 English headers
+  sd: 267 English headers
+  ta: 267 English headers
+  te: 0 English headers
+  ur: 267 English headers
+  TOTAL: 4286 English headers across all languages
+  STATUS: These provide section navigation. Keep or translate.
+
+
+2. CHAPTER CONTENT MISALIGNMENT
+--------------------------------------------------
+  bn: 4 misaligned chapters: [1, 15, 31, 42]
+  fr: 15 misaligned chapters: [15, 18, 19, 28, 33, 34, 35, 38, 39, 40, 42, 43, 44, 45, 47]
+  gu: 2 misaligned chapters: [18, 41]
+  hi: 1 misaligned chapters: [47]
+  kok: 5 misaligned chapters: [10, 15, 22, 29, 43]
+  mr: 8 misaligned chapters: [9, 10, 11, 16, 20, 26, 42, 47]
+  ne: 2 misaligned chapters: [1, 6]
+  pa: 2 misaligned chapters: [1, 29]
+  TOTAL: 39 misaligned chapters
+  STATUS: Requires re-extraction from PDFs with proper chapter detection
+
+
+3. TRUNCATED CHAPTERS (< 30% of English length)
+--------------------------------------------------
+  bn: [(2, '17%'), (4, '12%'), (29, '15%'), (37, '11%')]
+  ne: [(2, '23%'), (4, '11%'), (47, '7%')]
+  pa: [(1, '30%'), (2, '29%'), (4, '12%'), (11, '19%'), (37, '13%'), (47, '11%')]
+  te: [(9, '23%')]
+  ur: [(1, '11%'), (44, '10%'), (46, '25%')]
+  TOTAL: 17 truncated chapters
+  STATUS: Requires re-extraction with better OCR
+
+
+4. BAD/FRAGMENT TITLES (DE/ES/FR)
+--------------------------------------------------
+  de: All titles OK
+  es: All titles OK
+  fr: All titles OK

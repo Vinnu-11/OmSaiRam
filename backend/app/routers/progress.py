@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import User, ReadingAssignment, ReadingProgress
+from ..models import User, ReadingAssignment, ReadingProgress, GroupMember
 from ..schemas import UpdateProgressRequest, ProgressResponse
 from ..middleware.auth import get_current_user
 
@@ -81,6 +81,17 @@ def get_progress(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Assignment not found",
+        )
+
+    is_member = (
+        db.query(GroupMember)
+        .filter(GroupMember.group_id == assignment.group_id, GroupMember.user_id == current_user.id)
+        .first()
+    )
+    if not is_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this group",
         )
 
     progress = assignment.progress

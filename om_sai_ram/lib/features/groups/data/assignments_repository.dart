@@ -4,6 +4,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/api_client.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/chapter_units.dart';
+import '../../reader/data/chapter_model.dart';
 import 'assignment_model.dart';
 import 'schedule_suggestion_model.dart';
 
@@ -15,6 +17,22 @@ class AssignmentsRepository {
   final ApiClient _apiClient;
 
   AssignmentsRepository({required ApiClient apiClient}) : _apiClient = apiClient;
+
+  /// Use the server chapter index: bundled chapter IDs are not database IDs.
+  Future<List<Chapter>> getAssignableChapters() async {
+    var response = await _apiClient.get('${AppConstants.chaptersEndpoint}/mr');
+    // Older databases may have an English index instead of the Marathi index.
+    if ((response.data as List).isEmpty) {
+      response = await _apiClient.get('${AppConstants.chaptersEndpoint}/en');
+    }
+    final chapters = (response.data as List)
+        .map((json) => Chapter.fromJson(json as Map<String, dynamic>))
+        .where((chapter) => ChapterUnits.start(chapter.number) == chapter.number)
+        .toList()
+      ..sort((a, b) => a.number.compareTo(b.number));
+    final seen = <int>{};
+    return chapters.where((chapter) => seen.add(chapter.number)).toList();
+  }
 
   Future<List<Assignment>> getGroupAssignments(String groupId, {int? weekNumber}) async {
     final params = <String, dynamic>{};

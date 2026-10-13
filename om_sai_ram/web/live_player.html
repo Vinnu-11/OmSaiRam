@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Darshan</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js"
+        integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX"
+        crossorigin="anonymous"></script>
     <style>
         * {
             margin: 0;
@@ -68,6 +70,21 @@
             cursor: pointer;
         }
 
+        #notice {
+            display: none;
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 12px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
         #retry-btn:hover {
             background: #e0900f;
         }
@@ -93,6 +110,7 @@
     <div id="container">
         <div class="spinner" id="spinner"></div>
         <video id="video" autoplay muted playsinline controls></video>
+        <div id="notice">Audio is not supported in this browser &mdash; playing video only.</div>
         <div id="error">
             <h2>Live Darshan Unavailable</h2>
             <p>The live stream is currently inactive or could not be loaded.</p>
@@ -103,8 +121,57 @@
         const video = document.getElementById('video');
         const spinner = document.getElementById('spinner');
         const errorDiv = document.getElementById('error');
+        const notice = document.getElementById('notice');
 
         video.style.display = 'none';
+
+        let hls = null;
+        // Set when the browser can't decode the stream's AAC audio (e.g. Chromium/Electron builds without proprietary codecs).
+        let videoOnly = false;
+
+        // Retype the AAC entry in the MPEG-TS PMT so hls.js ignores the audio track.
+        function dropAacFromPmt(d) {
+            let pmtPid = -1;
+            for (let i = 0; i + 188 <= d.length; i += 188) {
+                if (d[i] !== 0x47 || !(d[i + 1] & 0x40)) continue;
+                const pid = ((d[i + 1] & 0x1f) << 8) | d[i + 2];
+                if (pid !== 0 && pid !== pmtPid) continue;
+                let o = i + 4;
+                if (d[i + 3] & 0x20) o += d[o] + 1;
+                o += d[o] + 1;
+                if (pid === 0) {
+                    pmtPid = ((d[o + 10] & 0x1f) << 8) | d[o + 11];
+                    continue;
+                }
+                const end = o + 3 + (((d[o + 1] & 0x0f) << 8) | d[o + 2]) - 4;
+                let p = o + 12 + (((d[o + 10] & 0x0f) << 8) | d[o + 11]);
+                while (p + 5 <= end) {
+                    if (d[p] === 0x0f) d[p] = 0x00;
+                    p += 5 + (((d[p + 3] & 0x0f) << 8) | d[p + 4]);
+                }
+            }
+        }
+
+        class VideoOnlyLoader extends Hls.DefaultConfig.loader {
+            load(context, config, callbacks) {
+                super.load(context, config, {
+                    ...callbacks,
+                    onSuccess: (response, stats, ctx, net) => {
+                        if (response.data instanceof ArrayBuffer) {
+                            dropAacFromPmt(new Uint8Array(response.data));
+                        }
+                        callbacks.onSuccess(response, stats, ctx, net);
+                    },
+                });
+            }
+        }
+
+        function showError() {
+            spinner.style.display = 'none';
+            video.style.display = 'none';
+            notice.style.display = 'none';
+            errorDiv.style.display = 'block';
+        }
 
         // Get the API base URL from query params or default to localhost:8000
         const params = new URLSearchParams(window.location.search);
@@ -114,6 +181,10 @@
             spinner.style.display = 'block';
             video.style.display = 'none';
             errorDiv.style.display = 'none';
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
 
             try {
                 const resp = await fetch(`${apiBase}/live-darshan/stream-url`);
@@ -122,23 +193,27 @@
                 const streamUrl = data.url;
 
                 if (Hls.isSupported()) {
-                    const hls = new Hls({
+                    hls = new Hls({
                         enableWorker: true,
                         lowLatencyMode: true,
+                        ...(videoOnly ? { fLoader: VideoOnlyLoader } : {}),
                     });
                     hls.loadSource(streamUrl);
                     hls.attachMedia(video);
                     hls.on(Hls.Events.MANIFEST_PARSED, () => {
                         spinner.style.display = 'none';
                         video.style.display = 'block';
+                        notice.style.display = videoOnly ? 'block' : 'none';
                         video.play().catch(() => { });
                     });
                     hls.on(Hls.Events.ERROR, (event, data) => {
-                        if (data.fatal) {
-                            spinner.style.display = 'none';
-                            video.style.display = 'none';
-                            errorDiv.style.display = 'block';
+                        if (!videoOnly && data.type === Hls.ErrorTypes.MEDIA_ERROR &&
+                            /audio decoder/i.test(String(data.error))) {
+                            videoOnly = true;
+                            setTimeout(loadStream, 0);
+                            return;
                         }
+                        if (data.fatal) showError();
                     });
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     // Safari native HLS support
@@ -158,9 +233,7 @@
                 }
             } catch (e) {
                 console.error('Live Darshan load error:', e);
-                spinner.style.display = 'none';
-                video.style.display = 'none';
-                errorDiv.style.display = 'block';
+                showError();
             }
         }
 

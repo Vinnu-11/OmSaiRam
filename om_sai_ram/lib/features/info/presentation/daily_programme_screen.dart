@@ -2,6 +2,7 @@
 // Daily Programme screen — Shirdi temple schedule from sai.org.in/en/daily-programme
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 
 class DailyProgrammeScreen extends StatelessWidget {
@@ -14,6 +15,10 @@ class DailyProgrammeScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/'),
+        ),
         title: const Text(
           'Daily Programme',
           style: TextStyle(fontWeight: FontWeight.w700),

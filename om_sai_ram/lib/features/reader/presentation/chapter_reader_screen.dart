@@ -3,6 +3,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/chapter_units.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/reader_settings_provider.dart';
 import '../../../core/providers/reading_progress_provider.dart';
@@ -97,7 +99,8 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
     // Show completion prompt once when user reaches ≥95% of the chapter
     if (progress >= 0.95 &&
         !_completionPromptShown &&
-        widget.assignmentId != null) {
+        widget.assignmentId != null &&
+        widget.groupId != null) {
       _completionPromptShown = true;
       Future.delayed(const Duration(milliseconds: 600), () {
         if (mounted) _showCompletionSheet();
@@ -108,8 +111,10 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
   Future<void> _markCompleted(String assignmentId, String groupId) async {
     final repo = ref.read(assignmentsRepositoryProvider);
     await repo.updateProgress(assignmentId, 'completed');
-    await ref.read(readingProgressProvider.notifier)
-        .markChapterCompleted(widget.chapterId);
+    for (var n = ChapterUnits.start(widget.chapterId);
+        n <= ChapterUnits.end(widget.chapterId); n++) {
+      await ref.read(readingProgressProvider.notifier).markChapterCompleted(n);
+    }
 
     // Post a chat message to the group
     final authUser = ref.read(authStateProvider).user;
@@ -163,7 +168,9 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final tr = S(ref.watch(languageProvider).appLanguage.code);
-    final chapterAsync = ref.watch(chapterProvider(widget.chapterId));
+    final chapterAsync = widget.assignmentId == null
+      ? ref.watch(chapterProvider(widget.chapterId))
+      : ref.watch(assignmentChapterProvider(widget.chapterId));
 
     final progress = ref.watch(readingProgressProvider);
     final settings = ref.watch(readerSettingsProvider);
@@ -362,14 +369,14 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      if (widget.chapterId > 1)
+                      if (chapter.number > 1)
                         TextButton.icon(
                           onPressed: () {
                             Navigator.pushReplacement(
                               context,
                               PageRouteBuilder(
                                 pageBuilder: (_, __, ___) => ChapterReaderScreen(
-                                  chapterId: widget.chapterId - 1,
+                                  chapterId: chapter.number - 1,
                                 ),
                                 transitionsBuilder: (_, a, __, child) =>
                                     FadeTransition(opacity: a, child: child),
@@ -386,14 +393,14 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                         )
                       else
                         const SizedBox.shrink(),
-                      if (widget.chapterId < ref.read(chaptersProvider).chapters.length)
+                      if (chapter.lastNumber < AppConstants.totalChapters)
                         FilledButton.icon(
                           onPressed: () {
                             Navigator.pushReplacement(
                               context,
                               PageRouteBuilder(
                                 pageBuilder: (_, __, ___) => ChapterReaderScreen(
-                                  chapterId: widget.chapterId + 1,
+                                  chapterId: chapter.lastNumber + 1,
                                 ),
                                 transitionsBuilder: (_, a, __, child) =>
                                     FadeTransition(opacity: a, child: child),

@@ -1,0 +1,49 @@
+{
+  "run_id": "QA-2026-10-13-01",
+  "commit": "bd24c153e7461f1343f9aec8b1c709b98266a20f",
+  "working_tree": "Dirty; existing staged, unstaged and untracked implementation files tested, not commit alone",
+  "os": "Ubuntu 22.04.5 LTS, Linux x86_64",
+  "python": "3.10.12, /usr/bin/python3",
+  "flutter": "3.44.4 stable",
+  "dart": "3.12.2",
+  "platforms": "Flutter headless widget tests and integrated Chromium/Electron release-web browser; no Android device available",
+  "api": "FastAPI TestClient, independent SQLite fixtures; running API health observed read-only at localhost:8000",
+  "database": "SQLite isolated tests with FK enforcement in catalogue runner; existing PostgreSQL 16.14 read-only inspection",
+  "backend_tests": {"passed": 88, "failed": 0, "warnings": 2, "duration_seconds": 30.92},
+  "flutter_tests": {"passed": 18, "failed": 0},
+  "analyzer": {"exit_code": 1, "error": 0, "warning": 0, "info": 378, "disposition": "Untriaged info-level lint/deprecation findings; not compiler errors"},
+  "web_release_build": {"exit_code": 0, "compilation_seconds": 66.5, "warnings": ["Wasm dry-run incompatibilities; JavaScript release build succeeded", "Cupertino icon font not found", "91 packages have newer versions incompatible with current constraints; not a vulnerability verdict"]},
+  "postgres_read_only": {"health": "healthy", "chapter_language": "mr", "chapter_rows": 53, "unique_numbers": 53, "alembic_version_table": "absent; migration/restore rehearsal not executed"},
+  "OPS-02": {"status": "Pass", "scope": "Isolated actual FastAPI lifespan startup; scraper replaced with no-op; in-memory DB", "default_secret_DEBUG_false": "Startup refused with RuntimeError", "configured_secret_DEBUG_false": "Startup succeeded and health returned healthy"},
+  "browser_evidence": [
+    {"case_id": "NAV-01", "status": "Pass", "scope": "Fresh localhost:8090 release-web origin; guest home, dashboard and public reader accessible"},
+    {"case_id": "NAV-03", "status": "Partial", "actual": "Guest /groups and /profile redirected to /login; representative private API rejection separately tested"},
+    {"case_id": "NAV-04", "status": "Partial", "actual": "Guest reader, events, daily programme, FAQ and live routes accessible; audio browser automation timed out, no pass claimed"},
+    {"case_id": "NAV-08", "status": "Partial", "actual": "/reader/999 showed Chapter not found; /unknown showed Page Not Found; nonnumeric route browser check timed out, not a proven defect"},
+    {"case_id": "AUTH-21", "status": "Pass", "scope": "Release web guest login", "actual": "Forgot Password displays Password reset coming soon; no working reset flow claimed"},
+    {"case_id": "READ-01", "status": "Partial", "actual": "English chapter 1 rendered; all 18 JSON bodies structurally nonempty; not every selectable language rendered"},
+    {"case_id": "READ-06", "status": "Partial", "actual": "English chapter 1 rendered 6710 semantics characters with every /api/v1 request aborted; bundled asset server still reachable, not full airplane-mode certification"},
+    {"case_id": "RES-01", "status": "Partial", "actual": "Same English API-unavailable reader check; cold fully offline cache/bookmark/information matrix incomplete"},
+    {"case_id": "INFO-04", "status": "Partial", "actual": "Daily programme shows temple opening and morning aarti schedule; links/localization not fully exercised"},
+    {"case_id": "INFO-05", "status": "Partial", "actual": "Guest FAQ renders questions; all-language/offline/expand-collapse matrix incomplete"},
+    {"case_id": "LIVE-01", "status": "Partial", "actual": "Live route/player iframe reachable; picture/sound/upstream/Android playback not certified"}
+  ],
+  "additional_case_evidence": [
+    {"case_id": "COM-03", "status": "Pass", "scope": "Every one of 18 bundled books; number mapping, four combined labels, counts and Marathi originals checked; accepts hyphen/en-dash equivalence"},
+    {"case_id": "LANG-01", "status": "Partial", "actual": "All 18 enum language codes match asset files; disabled Urdu and beta flags source-inspected, chooser not fully exercised"},
+    {"case_id": "LANG-06", "status": "Partial", "actual": "No U+FFFD replacement characters across 852 chapter bodies/titles; no claim of font/OCR/linguistic accuracy"},
+    {"case_id": "OPS-01", "status": "Partial", "actual": "Running API healthy; existing PostgreSQL Marathi index has 53 unique numbers; isolated restart/persistence sequence not run"},
+    {"case_id": "OPS-05", "status": "Partial", "actual": "Web release build succeeds and guest smoke checks performed; Android release install and full smoke pack not run"},
+    {"case_id": "OPS-08", "status": "Fail", "actual": "Both automated suites pass; flutter analyze exits 1 with 378 info findings not triaged; dependency security scan not run", "caveat": "Quality-gate/triage failure, not 378 compiler errors or proven vulnerable packages"}
+  ],
+  "limitations": [
+    "API subchecks do not certify UI/E2E catalogue rows or PostgreSQL semantics.",
+    "Native reminders/audio/background behavior require an Android test device and controlled clocks/permissions.",
+    "Real SMS sender absent; successful social authentication not implemented/configured.",
+    "Production HTTPS/CORS/storage/logs, backup/restore, PostgreSQL concurrency and multi-worker limits not certified.",
+    "All-language linguistic/source review needs competent reviewers; automated JSON structure is not quality approval.",
+    "Performance budgets and approved remainder allocation decisions not supplied.",
+    "Browser automation timeouts on audio and nonnumeric reader routes are inconclusive, not automatic failures.",
+    "No application defects were fixed; added runners and evidence only."
+  ]
+}

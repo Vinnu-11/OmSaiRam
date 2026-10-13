@@ -97,4 +97,38 @@ class GroupsRepository {
       data: {'user_id': userId, 'role': role},
     );
   }
+
+  /// Removes a member from a group (admin/lead only).
+  Future<void> removeMember({
+    required String groupId,
+    required String userId,
+  }) async {
+    await _apiClient.delete(
+      '${AppConstants.groupsEndpoint}/$groupId/members/$userId',
+    );
+  }
+
+  /// Adds a user to a group by user ID (admin/lead only).
+  Future<GroupMember> addMember({
+    required String groupId,
+    required String userId,
+  }) async {
+    final response = await _apiClient.post(
+      '${AppConstants.groupsEndpoint}/$groupId/members',
+      data: {'user_id': userId},
+    );
+    return GroupMember.fromJson(response.data);
+  }
+
+  /// Searches users not yet in the group. Returns up to 20 results.
+  Future<List<Map<String, dynamic>>> searchUsersForGroup({
+    required String groupId,
+    required String query,
+  }) async {
+    final response = await _apiClient.get(
+      '${AppConstants.groupsEndpoint}/$groupId/search-users',
+      queryParameters: {'q': query},
+    );
+    return (response.data as List).cast<Map<String, dynamic>>();
+  }
 }

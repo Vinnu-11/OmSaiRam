@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/events_provider.dart';
 import '../data/festival_model.dart';
@@ -20,6 +21,10 @@ class EventsScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/'),
+        ),
         title: const Text(
           'Upcoming Events',
           style: TextStyle(fontWeight: FontWeight.w700),

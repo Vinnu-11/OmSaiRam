@@ -118,7 +118,7 @@ class ReadingAssignment(Base):
     # Relationships
     group = relationship("Group", back_populates="assignments")
     chapter = relationship("Chapter", back_populates="assignments")
-    progress = relationship("ReadingProgress", back_populates="assignment", uselist=False)
+    progress = relationship("ReadingProgress", back_populates="assignment", uselist=False, cascade="all, delete-orphan")
 
 
 class ReadingProgress(Base):

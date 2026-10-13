@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/constants/chapter_units.dart';
 import '../../../core/providers/language_provider.dart';
 import '../../../core/l10n/s.dart';
 import '../data/group_model.dart';
@@ -18,8 +19,10 @@ import '../data/group_chat_repository.dart';
 import '../data/notification_schedule_model.dart';
 import '../data/notification_schedule_repository.dart';
 import '../data/schedule_suggestion_model.dart';
+import '../providers/groups_provider.dart';
 import '../../../core/services/notifications_service.dart';
 import '../../auth/providers/auth_provider.dart';
+import 'manual_assignment_sheet.dart';
 
 class GroupDetailScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -131,6 +134,14 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
             icon: const Icon(Icons.share_outlined),
             tooltip: 'Share invite code',
             onPressed: () => _showInviteCode(context),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'leave') _confirmLeaveGroup(context);
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'leave', child: Text('Leave Group')),
+            ],
           ),
         ],
         bottom: TabBar(
@@ -282,6 +293,37 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
       ),
     );
   }
+
+  void _confirmLeaveGroup(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave Group'),
+        content: Text('Are you sure you want to leave "${_group!.name}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref.read(groupsRepositoryProvider).leaveGroup(widget.groupId);
+                ref.read(groupsProvider.notifier).loadGroups();
+                if (mounted) context.pop();
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to leave group: $e')),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ─── Members Tab ─────────────────────────────────────────────────────────────
@@ -301,18 +343,40 @@ class _MembersTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: members.length,
-      itemBuilder: (context, index) {
-        final member = members[index];
-        return _MemberCard(
-          member: member,
-          isAdmin: isAdmin,
-          groupId: groupId,
-          onRoleChanged: onRoleChanged,
-        );
-      },
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        itemCount: members.length,
+        itemBuilder: (context, index) {
+          final member = members[index];
+          return _MemberCard(
+            member: member,
+            isAdmin: isAdmin,
+            groupId: groupId,
+            onRoleChanged: onRoleChanged,
+          );
+        },
+      ),
+      floatingActionButton: isAdmin
+          ? FloatingActionButton.extended(
+              backgroundColor: AppColors.saffron,
+              icon: const Icon(Icons.person_add_outlined, color: Colors.white),
+              label: const Text('Add Member', style: TextStyle(color: Colors.white)),
+              onPressed: () => _showAddMemberSheet(context, ref),
+            )
+          : null,
+    );
+  }
+
+  void _showAddMemberSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AddMemberSheet(groupId: groupId, onAdded: onRoleChanged),
     );
   }
 }
@@ -359,6 +423,11 @@ class _MemberCard extends ConsumerWidget {
               GestureDetector(
                 onTap: () => _showRoleSheet(context, ref),
                 child: Icon(Icons.edit_outlined, size: 18, color: AppColors.lightText),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => _confirmRemoveMember(context, ref),
+                child: Icon(Icons.person_remove_outlined, size: 18, color: Colors.red.shade300),
               ),
             ],
           ],
@@ -439,6 +508,39 @@ class _MemberCard extends ConsumerWidget {
         );
       }
     }
+  }
+
+  void _confirmRemoveMember(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Member'),
+        content: Text('Remove ${member.name} from this group?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref.read(groupsRepositoryProvider).removeMember(
+                  groupId: groupId,
+                  userId: member.userId,
+                );
+                onRoleChanged(); // refreshes member list
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Could not remove member: $e')),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -549,14 +651,16 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
     try {
       final repo = ref.read(assignmentsRepositoryProvider);
       final all = await repo.getGroupAssignments(widget.groupId, weekNumber: _selectedWeek);
+      if (!mounted) return;
       setState(() {
         _assignments = all;
         _loading = false;
       });
-      // Auto-schedule local notifications using the group's schedule.
-      _rescheduleNotifications(all);
+      // Only remind this device's user about their own chapters.
+      final myId = ref.read(authStateProvider).user?.id;
+      _rescheduleNotifications(all.where((a) => a.userId == myId).toList());
     } catch (_) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -575,15 +679,23 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
     }
   }
 
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _openAutoScheduleSheet() async {
     // Determine the next unscheduled chapter to pre-fill the start field.
     // Start search from the group's configured start_chapter (defaults to 1).
     final allAssignments = await ref
         .read(assignmentsRepositoryProvider)
         .getGroupAssignments(widget.groupId);
-    final assignedChapters = allAssignments.map((a) => a.chapterNumber ?? 0).toSet();
-    int startChapter = widget.group.startChapter;
-    while (assignedChapters.contains(startChapter)) startChapter++;
+    final assignedChapters = allAssignments
+        .map((a) => ChapterUnits.start(a.chapterNumber ?? 0)).toSet();
+    int startChapter = ChapterUnits.start(widget.group.startChapter);
+    while (assignedChapters.contains(startChapter)) {
+      startChapter = ChapterUnits.next(startChapter);
+    }
 
     if (!mounted) return;
 
@@ -615,9 +727,32 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
     );
   }
 
-  // Legacy remainder dialog kept for use from other places.
-  /// Shows a dialog informing the group lead about remainder chapters
-  /// that couldn't be evenly distributed across members.
+  void _openManualAssignmentSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => ManualAssignmentSheet(
+        groupId: widget.groupId,
+        members: widget.members,
+        initialWeek: _selectedWeek,
+        onAssigned: (week, count) {
+          if (!mounted) return;
+          setState(() => _selectedWeek = week);
+          _loadAssignments();
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('$count reading assignment(s) created for Week $week'),
+            backgroundColor: Colors.green,
+          ));
+        },
+      ),
+    );
+  }
+
+  // Used by group leads to handle uneven chapter distribution.
+  // ignore: unused_element
   void _showRemainderDialog(List<Map<String, dynamic>> remainders) {
     // Group by week for clarity
     final byWeek = <int, List<Map<String, dynamic>>>{};
@@ -788,6 +923,16 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
                   ],
                 ),
                 const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: _ActionButton(
+                    icon: Icons.edit_note_outlined,
+                    label: 'Manual Assign',
+                    onTap: _openManualAssignmentSheet,
+                    outlined: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 // Notification settings — group lead only
                 GestureDetector(
                   onTap: _openNotificationSettings,
@@ -832,28 +977,40 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
           child: _loading
               ? const Center(child: CircularProgressIndicator(color: AppColors.saffron))
               : _assignments.isEmpty
-                  ? _EmptySchedule(canAssign: widget.canAssign, onAutoSchedule: _openAutoScheduleSheet)
+                    ? _EmptySchedule(canAssign: widget.canAssign,
+                      onAutoSchedule: _openAutoScheduleSheet,
+                      onManualAssign: _openManualAssignmentSheet)
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       itemCount: _assignments.length,
                       itemBuilder: (context, index) {
+                        final assignment = _assignments[index];
                         return _AssignmentCard(
-                          assignment: _assignments[index],
+                          assignment: assignment,
                           canAssign: widget.canAssign,
                           onDelete: () async {
-                            await ref
-                                .read(assignmentsRepositoryProvider)
-                                .deleteAssignment(_assignments[index].id);
+                            try {
+                              await ref
+                                  .read(assignmentsRepositoryProvider)
+                                  .deleteAssignment(assignment.id);
+                              await NotificationsService()
+                                  .cancelGroupNotificationsForAssignment(assignment.id);
+                            } catch (e) {
+                              _showError('Could not delete assignment');
+                            }
                             _loadAssignments();
                           },
                           onProgressChanged: (status) async {
-                            await ref
-                                .read(assignmentsRepositoryProvider)
-                                .updateProgress(_assignments[index].id, status);
-                            // Cancel notifications once reading is completed.
-                            if (status == ReadingStatus.completed) {
-                              await NotificationsService()
-                                  .cancelGroupNotificationsForAssignment(_assignments[index].id);
+                            try {
+                              await ref
+                                  .read(assignmentsRepositoryProvider)
+                                  .updateProgress(assignment.id, status);
+                              if (status == 'completed') {
+                                await NotificationsService()
+                                    .cancelGroupNotificationsForAssignment(assignment.id);
+                              }
+                            } catch (e) {
+                              _showError('You can only update your own reading progress');
                             }
                             _loadAssignments();
                           },
@@ -1214,15 +1371,16 @@ class _AutoScheduleSheetState extends ConsumerState<_AutoScheduleSheet> {
     (value: 'truncate',     label: 'Skip partial chapters'),
     (value: 'extend_last',  label: 'Extend last member slot'),
     (value: 'round_robin',  label: 'Round-robin extras to early members'),
-    (value: 'cycle',        label: 'Loop back to Ch.1 after Ch.47'),
+    (value: 'cycle',        label: 'Loop back to Ch.1 after Ch.53'),
   ];
 
   @override
   void initState() {
     super.initState();
-    _startChapter = widget.defaultStartChapter;
+    _startChapter = ChapterUnits.start(widget.defaultStartChapter);
     _hint0Start = TextEditingController(text: '$_startChapter');
-    _hint1Start = TextEditingController(text: '${_startChapter + widget.group.chaptersPerWeek}');
+    _hint1Start = TextEditingController(
+      text: '${ChapterUnits.advance(_startChapter, widget.group.chaptersPerWeek)}');
   }
 
   @override
@@ -1269,7 +1427,7 @@ class _AutoScheduleSheetState extends ConsumerState<_AutoScheduleSheet> {
   Future<void> _runAutoSchedule() async {
     setState(() => _scheduling = true);
     try {
-      await ref.read(assignmentsRepositoryProvider).autoSchedule(
+      final result = await ref.read(assignmentsRepositoryProvider).autoSchedule(
         groupId: widget.groupId,
         startChapter: _startChapter,
         weeksAhead: _weeksAhead,
@@ -1277,6 +1435,13 @@ class _AutoScheduleSheetState extends ConsumerState<_AutoScheduleSheet> {
         remainderMode: _remainderMode,
       );
       if (!mounted) return;
+      if (result.assignments.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('No new assignments were created. '
+              'These chapters may already be assigned or be past the end of the book.'),
+        ));
+        return;
+      }
       Navigator.pop(context);
       widget.onScheduled();
     } catch (e) {
@@ -1460,7 +1625,7 @@ class _AutoScheduleSheetState extends ConsumerState<_AutoScheduleSheet> {
                         IconButton(
                           icon: const Icon(Icons.remove_circle_outline, size: 20),
                           onPressed: _startChapter > 1
-                              ? () => setState(() { _startChapter--; _suggestion = null; })
+                              ? () => setState(() { _startChapter = ChapterUnits.previous(_startChapter); _suggestion = null; })
                               : null,
                           color: AppColors.saffron,
                           padding: EdgeInsets.zero,
@@ -1468,14 +1633,14 @@ class _AutoScheduleSheetState extends ConsumerState<_AutoScheduleSheet> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '$_startChapter',
+                          ChapterUnits.label(_startChapter),
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.add_circle_outline, size: 20),
-                          onPressed: _startChapter < 47
-                              ? () => setState(() { _startChapter++; _suggestion = null; })
+                            onPressed: ChapterUnits.end(_startChapter) < ChapterUnits.totalChapters
+                              ? () => setState(() { _startChapter = ChapterUnits.next(_startChapter); _suggestion = null; })
                               : null,
                           color: AppColors.saffron,
                           padding: EdgeInsets.zero,
@@ -1874,11 +2039,11 @@ class _AssignmentCard extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: () => context.go(
-            '/reader/${assignment.chapterId}',
+            '/reader/${assignment.chapterNumber ?? assignment.chapterId}',
             extra: {
               'assignmentId': assignment.id,
               'groupId': assignment.groupId,
-              'chapterTitle': assignment.chapterTitle ?? 'Chapter ${assignment.chapterNumber}',
+              'chapterTitle': 'Chapter ${assignment.displayChapterLabel} — ${assignment.chapterTitle ?? ''}',
             },
           ),
           child: Padding(
@@ -1895,7 +2060,7 @@ class _AssignmentCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Ch. ${assignment.chapterNumber ?? assignment.chapterId}',
+                  'Ch. ${assignment.displayChapterLabel}',
                   style: TextStyle(
                       color: AppColors.saffron,
                       fontWeight: FontWeight.w700,
@@ -1988,13 +2153,15 @@ class _AssignmentCard extends StatelessWidget {
 class _EmptySchedule extends StatelessWidget {
   final bool canAssign;
   final VoidCallback onAutoSchedule;
+  final VoidCallback onManualAssign;
 
-  const _EmptySchedule({required this.canAssign, required this.onAutoSchedule});
+  const _EmptySchedule({required this.canAssign, required this.onAutoSchedule,
+    required this.onManualAssign});
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -2016,7 +2183,7 @@ class _EmptySchedule extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               canAssign
-                  ? 'Tap Auto-Schedule to assign 2–3 chapters per week automatically'
+                  ? 'Assign chapters manually or use Auto-Schedule for weekly readings'
                   : 'The group lead will assign chapters soon',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.lightText),
@@ -2029,10 +2196,16 @@ class _EmptySchedule extends StatelessWidget {
                 label: const Text('Auto-Schedule'),
                 style: FilledButton.styleFrom(backgroundColor: AppColors.saffron),
               ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: onManualAssign,
+                icon: const Icon(Icons.edit_note_outlined),
+                label: const Text('Manual Assign'),
+              ),
             ],
           ],
         ),
-      ),
+      )),
     );
   }
 }
@@ -2697,6 +2870,158 @@ class _RoleBadge extends StatelessWidget {
           const SizedBox(width: 3),
           Text(label,
               style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Add Member Bottom Sheet ─────────────────────────────────────────────────
+
+class _AddMemberSheet extends ConsumerStatefulWidget {
+  final String groupId;
+  final VoidCallback onAdded;
+
+  const _AddMemberSheet({required this.groupId, required this.onAdded});
+
+  @override
+  ConsumerState<_AddMemberSheet> createState() => _AddMemberSheetState();
+}
+
+class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
+  final _controller = TextEditingController();
+  List<Map<String, dynamic>> _results = [];
+  bool _searching = false;
+  String _lastQuery = '';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search(String query) async {
+    if (query.trim().length < 2) {
+      setState(() => _results = []);
+      return;
+    }
+    if (query == _lastQuery) return;
+    _lastQuery = query;
+    setState(() => _searching = true);
+    try {
+      final results = await ref.read(groupsRepositoryProvider).searchUsersForGroup(
+        groupId: widget.groupId,
+        query: query.trim(),
+      );
+      if (mounted && query == _lastQuery) setState(() => _results = results);
+    } catch (_) {
+      // ignore search errors
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
+  Future<void> _addUser(Map<String, dynamic> user) async {
+    try {
+      await ref.read(groupsRepositoryProvider).addMember(
+        groupId: widget.groupId,
+        userId: user['id'] as String,
+      );
+      widget.onAdded();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${user['name']} added to group')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not add member: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20, right: 20, top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Add Member',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text('Search by name, email, or phone',
+              style: TextStyle(color: AppColors.lightText, fontSize: 13)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Type to search…',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searching
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : null,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            onChanged: _search,
+          ),
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.35,
+            ),
+            child: _results.isEmpty
+                ? (_controller.text.length >= 2
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text('No users found',
+                              style: TextStyle(color: AppColors.lightText)),
+                        ),
+                      )
+                    : const SizedBox.shrink())
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _results.length,
+                    itemBuilder: (context, index) {
+                      final user = _results[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: AppColors.saffron.withOpacity(0.15),
+                          child: Text(
+                            (user['name'] as String? ?? '?')[0].toUpperCase(),
+                            style: TextStyle(
+                                color: AppColors.saffron, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        title: Text(user['name'] as String? ?? 'Unknown'),
+                        subtitle: Text(
+                          user['email'] as String? ?? user['phone_number'] as String? ?? '',
+                          style: TextStyle(fontSize: 12, color: AppColors.lightText),
+                        ),
+                        trailing: IconButton(
+                          icon: Icon(Icons.person_add, color: AppColors.saffron),
+                          onPressed: () => _addUser(user),
+                        ),
+                      );
+                    },
+                  ),
+          ),
         ],
       ),
     );

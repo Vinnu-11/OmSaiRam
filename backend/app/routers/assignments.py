@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -18,11 +19,12 @@ from ..schemas import (
     SuggestedSlot,
 )
 from ..middleware.auth import get_current_user
+from ..services.chapter_units import (
+    TOTAL_CHAPTERS, chapter_start, chapter_end, chapter_label,
+    reading_units, unit_position, unit_number,
+)
 
 router = APIRouter()
-
-# Sai Satcharita has 53 chapters; used as fallback when chapters table is empty.
-TOTAL_CHAPTERS = 53
 
 
 def _can_assign(role: str) -> bool:
@@ -49,6 +51,8 @@ def _build_assignment_response(assignment: ReadingAssignment, db: Session) -> As
         user_name=user.name if user else None,
         chapter_id=assignment.chapter_id,
         chapter_number=chapter.number if chapter else None,
+        chapter_label=chapter_label(chapter.number) if chapter else None,
+        chapter_end_number=chapter_end(chapter.number) if chapter else None,
         chapter_title=chapter.title if chapter else None,
         week_number=assignment.week_number,
         scheduled_date=assignment.scheduled_date,
@@ -66,7 +70,7 @@ def create_assignment(
     """Assign a chapter to a user in a group.
 
     Only admins and group leads can create assignments.
-    Prevents duplicate assignments of the same chapter to the same user in a group.
+    Prevents duplicate reading units for the same member and week.
     """
     membership = (
         db.query(GroupMember)
@@ -100,27 +104,46 @@ def create_assignment(
     if not chapter:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chapter not found")
 
+    start, end = chapter_start(chapter.number), chapter_end(chapter.number)
+    canonical = db.query(Chapter).filter(
+        Chapter.number == start, Chapter.language == chapter.language,
+    ).first()
+    if not canonical:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chapter not found")
+    chapter = canonical
+
     existing = (
         db.query(ReadingAssignment)
+        .join(Chapter)
         .filter(
             ReadingAssignment.group_id == request.group_id,
             ReadingAssignment.user_id == request.user_id,
-            ReadingAssignment.chapter_id == request.chapter_id,
+            ReadingAssignment.week_number == request.week_number,
+            Chapter.number.between(start, end),
         )
         .first()
     )
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This chapter is already assigned to this user in this group",
+            detail="This chapter is already assigned to this user for this week",
+        )
+
+    scheduled_date = request.scheduled_date
+    if scheduled_date is None:
+        group = db.query(Group).filter(Group.id == request.group_id).first()
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+        scheduled_date = _monday_of_week(
+            datetime.utcnow(), request.week_number - (group.current_week or 1),
         )
 
     assignment = ReadingAssignment(
         group_id=request.group_id,
         user_id=request.user_id,
-        chapter_id=request.chapter_id,
+        chapter_id=chapter.id,
         week_number=request.week_number,
-        scheduled_date=request.scheduled_date,
+        scheduled_date=scheduled_date,
     )
     db.add(assignment)
     db.flush()
@@ -236,8 +259,10 @@ def auto_schedule(
     if not members:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group has no members")
 
-    # Count available chapters so we know the book length
-    total_chapters = db.query(Chapter).count() or TOTAL_CHAPTERS
+    # Schedule reading units, not individual numbers inside a combined range.
+    total_chapters = db.query(func.max(Chapter.number)).scalar() or TOTAL_CHAPTERS
+    units = reading_units(total_chapters)
+    start_position = unit_position(request.start_chapter, units, total_chapters)
 
     chapters_per_week = group.chapters_per_week or 2
     member_count = len(members)
@@ -258,7 +283,7 @@ def auto_schedule(
         for member_index, member in enumerate(members):
             member_start = _member_chapter_start(
                 mode, week_offset, member_index,
-                request.start_chapter, chapters_per_week, member_count,
+                start_position, chapters_per_week, member_count,
             )
 
             # Determine how many chapters this member reads this slot.
@@ -267,8 +292,10 @@ def auto_schedule(
             slots = chapters_per_week
 
             for slot in range(slots):
-                chapter_number = member_start + slot
-                resolved = _apply_remainder(chapter_number, remainder_mode, total_chapters, total_chapters)
+                position = member_start + slot
+                chapter_number = unit_number(position, units, total_chapters)
+                resolved_position = _apply_remainder(position, remainder_mode, len(units), len(units))
+                resolved = units[resolved_position - 1] if resolved_position is not None else None
 
                 if resolved is None:
                     # Chapter is past end of book and mode is not cycle
@@ -285,7 +312,7 @@ def auto_schedule(
 
                 # round_robin: give extras back to early members
                 if remainder_mode == "round_robin" and chapter_number > total_chapters:
-                    resolved = ((chapter_number - 1) % total_chapters) + 1
+                    resolved = units[(position - 1) % len(units)]
 
                 chapter = db.query(Chapter).filter(Chapter.number == resolved).first()
                 if not chapter:
@@ -299,10 +326,11 @@ def auto_schedule(
                 # Skip if already assigned to anyone in this group for this week
                 existing = (
                     db.query(ReadingAssignment)
+                    .join(Chapter)
                     .filter(
                         ReadingAssignment.group_id == request.group_id,
                         ReadingAssignment.user_id == member.user_id,
-                        ReadingAssignment.chapter_id == chapter.id,
+                        Chapter.number.between(resolved, chapter_end(resolved)),
                         ReadingAssignment.week_number == week_number,
                     )
                     .first()
@@ -389,7 +417,8 @@ def suggest_schedule(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group has no members")
 
     W = group.chapters_per_week or 2
-    total_chapters = db.query(Chapter).count() or TOTAL_CHAPTERS
+    total_chapters = db.query(func.max(Chapter.number)).scalar() or TOTAL_CHAPTERS
+    units = reading_units(total_chapters)
 
     # ── Detect pattern ──────────────────────────────────────────────────────
     hints_sorted = sorted(request.hints, key=lambda h: h.position)
@@ -400,7 +429,10 @@ def suggest_schedule(
             detail="Provide at least 2 hints (positions 0 and 1) to detect a pattern",
         )
 
-    step = hints_sorted[1].chapter_start - hints_sorted[0].chapter_start
+    step = (
+        unit_position(hints_sorted[1].chapter_start, units, total_chapters)
+        - unit_position(hints_sorted[0].chapter_start, units, total_chapters)
+    )
 
     if step == W:
         detected_mode = "non_overlapping"
@@ -410,10 +442,13 @@ def suggest_schedule(
         detected_mode = "custom"
 
     # Base chapter for position 0 in the hint week
-    base_chapter = hints_sorted[0].chapter_start
+    base_chapter = unit_position(hints_sorted[0].chapter_start, units, total_chapters)
 
     # Build a position → chapter_start lookup for manually-provided hints
-    manual_positions = {h.position: h.chapter_start for h in hints_sorted}
+    manual_positions = {
+        h.position: unit_position(h.chapter_start, units, total_chapters)
+        for h in hints_sorted
+    }
 
     # ── Build suggestion grid ────────────────────────────────────────────────
     suggestions: list[SuggestedSlot] = []
@@ -437,11 +472,12 @@ def suggest_schedule(
             # Build list of chapter numbers for this slot
             chapter_nums: list[int] = []
             for slot in range(W):
-                ch = ch_start + slot
+                position = ch_start + slot
+                ch = unit_number(position, units, total_chapters)
 
-                if ch > total_chapters:
+                if position > len(units):
                     if remainder_mode == "cycle":
-                        ch = ((ch - 1) % total_chapters) + 1
+                        ch = units[(position - 1) % len(units)]
                     elif remainder_mode == "extend_last" and pos == member_count - 1:
                         # Allow extend — chapter included as-is (lead is aware)
                         pass
@@ -464,6 +500,7 @@ def suggest_schedule(
                 user_id=member.user_id,
                 user_name=user_name,
                 chapter_numbers=chapter_nums,
+                chapter_labels=[chapter_label(n) for n in chapter_nums],
                 is_manual=is_manual,
             ))
 

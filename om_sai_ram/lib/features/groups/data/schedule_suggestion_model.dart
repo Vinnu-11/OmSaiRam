@@ -1,6 +1,8 @@
 // Om Sai Ram
 // ScheduleSuggestion — result of the pattern-detect /suggest API endpoint.
 
+import '../../../core/constants/chapter_units.dart';
+
 /// One suggested chapter assignment in the preview grid.
 class SuggestedSlot {
   final int weekNumber;
@@ -8,6 +10,7 @@ class SuggestedSlot {
   final String userId;
   final String userName;
   final List<int> chapterNumbers;
+  final List<String> chapterLabels;
   final bool isManual;       // true = provided by lead, false = computed
 
   const SuggestedSlot({
@@ -16,6 +19,7 @@ class SuggestedSlot {
     required this.userId,
     required this.userName,
     required this.chapterNumbers,
+    this.chapterLabels = const [],
     required this.isManual,
   });
 
@@ -26,6 +30,7 @@ class SuggestedSlot {
       userId: json['user_id'] as String,
       userName: json['user_name'] as String,
       chapterNumbers: (json['chapter_numbers'] as List).cast<int>(),
+      chapterLabels: (json['chapter_labels'] as List?)?.cast<String>() ?? const [],
       isManual: json['is_manual'] as bool,
     );
   }
@@ -33,6 +38,12 @@ class SuggestedSlot {
   /// Human-readable chapter range label, e.g. "Ch.1–2" or "Ch.1, 2, 3".
   String get label {
     if (chapterNumbers.isEmpty) return '—';
+    final labels = chapterLabels.isNotEmpty
+        ? chapterLabels
+        : chapterNumbers.map(ChapterUnits.label).toList();
+    if (labels.any((label) => label.contains('-'))) {
+      return 'Ch.${labels.join(', ')}';
+    }
     if (chapterNumbers.length == 1) return 'Ch.${chapterNumbers.first}';
     final first = chapterNumbers.first;
     final last = chapterNumbers.last;

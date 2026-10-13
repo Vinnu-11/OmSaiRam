@@ -1,6 +1,9 @@
 // Om Sai Ram
 // Auth repository — handles authentication API calls and token storage.
 
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_constants.dart';
@@ -133,14 +136,23 @@ class AuthRepository {
   }
 
   /// Fetches the current user from the backend using stored token.
-  /// Returns null if the token is invalid or expired.
+  /// Returns null if the session is invalid; falls back to the cached user when offline.
   Future<User?> getCurrentUser() async {
     try {
       final response = await _apiClient.get('/auth/me');
+      await _storage.write(key: AppConstants.userDataKey, value: jsonEncode(response.data));
       return User.fromJson(response.data);
-    } catch (_) {
-      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) return null;
+      final cached = await _storage.read(key: AppConstants.userDataKey);
+      return cached == null ? null : User.fromJson(jsonDecode(cached));
     }
+  }
+
+  /// Permanently deletes the account on the server and clears local tokens.
+  Future<void> deleteAccount() async {
+    await _apiClient.delete('/auth/me');
+    await logout();
   }
 
   /// Updates the current user's profile.
@@ -173,5 +185,6 @@ class AuthRepository {
       key: AppConstants.refreshTokenKey,
       value: data['refresh_token'] as String,
     );
+    await _storage.write(key: AppConstants.userDataKey, value: jsonEncode(data['user']));
   }
 }
