@@ -3,6 +3,7 @@
 # Covers corner cases and edge conditions.
 
 import os
+from datetime import datetime
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key"
@@ -15,7 +16,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.database import Base, get_db
 from app.main import app
-from app.models import Chapter
+from app.models import Chapter, GroupMessage
 
 # In-memory SQLite
 engine = create_engine(
@@ -869,6 +870,60 @@ class TestSuggestSchedule:
         assert response.json()["detected_mode"] == "dense"
         assert response.json()["detected_step"] == 1
 
+    @pytest.mark.parametrize("starts", [(1, 3), (1, 4)])
+    def test_suggestion_matches_confirmed_schedule(self, starts):
+        token, group_id, _ = _create_group_with_members(3, chapters_per_week=2)
+        preview = client.post(
+            "/api/v1/assignments/suggest",
+            json={
+                "group_id": group_id,
+                "week_number": 1,
+                "hints": [
+                    {"position": 0, "chapter_start": starts[0]},
+                    {"position": 1, "chapter_start": starts[1]},
+                ],
+                "weeks_ahead": 1,
+            },
+            headers=_auth_header(token),
+        ).json()
+        confirmed = client.post(
+            "/api/v1/assignments/auto-schedule",
+            json={
+                "group_id": group_id,
+                "start_chapter": starts[0],
+                "weeks_ahead": 2,
+                "schedule_mode": "independent",
+            },
+            headers=_auth_header(token),
+        ).json()
+        expected = sorted(
+            (slot["user_id"], slot["week_number"], chapter)
+            for slot in preview["suggestions"]
+            for chapter in slot["chapter_numbers"]
+        )
+        actual = sorted(
+            (assignment["user_id"], assignment["week_number"], assignment["chapter_number"])
+            for assignment in confirmed["assignments"]
+        )
+        assert actual == expected
+
+    @pytest.mark.parametrize(
+        "hints",
+        [
+            [{"position": 0, "chapter_start": 1}, {"position": 99, "chapter_start": 3}],
+            [{"position": 0, "chapter_start": 1}, {"position": 0, "chapter_start": 3}],
+            [{"position": 0, "chapter_start": 3}, {"position": 1, "chapter_start": 1}],
+        ],
+    )
+    def test_suggest_rejects_ambiguous_hints(self, hints):
+        token, group_id, _ = _create_group_with_members(3, chapters_per_week=1)
+        response = client.post(
+            "/api/v1/assignments/suggest",
+            json={"group_id": group_id, "hints": hints, "weeks_ahead": 1},
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 400
+
     def test_suggest_too_few_hints(self):
         """Less than 2 hints should be rejected."""
         token, group_id, _ = _create_group_with_members(2)
@@ -936,6 +991,64 @@ class TestAdvanceWeek:
 
 class TestRegressions:
     """Bugs found in QA pass."""
+
+    def test_manual_assignment_rejects_unsafe_week(self):
+        token, group_id, user_ids = _create_group_with_members(1)
+        response = client.post(
+            "/api/v1/assignments",
+            json={
+                "group_id": group_id,
+                "user_id": user_ids[0],
+                "chapter_id": 1,
+                "week_number": 1_000_000_000,
+            },
+            headers=_auth_header(token),
+        )
+        assert response.status_code == 400
+
+    def test_chat_cursor_is_stable_and_group_scoped(self):
+        token, group_id, _ = _create_group_with_members(1)
+        message_ids = []
+        for index in range(3):
+            response = client.post(
+                f"/api/v1/groups/{group_id}/messages",
+                json={"content": f"Tied message {index}"},
+                headers=_auth_header(token),
+            )
+            message_ids.append(response.json()["id"])
+
+        db = TestingSessionLocal()
+        db.query(GroupMessage).filter(GroupMessage.id.in_(message_ids)).update(
+            {GroupMessage.created_at: datetime(2026, 1, 1)},
+            synchronize_session=False,
+        )
+        db.commit()
+        db.close()
+
+        first = client.get(
+            f"/api/v1/groups/{group_id}/messages?limit=1",
+            headers=_auth_header(token),
+        ).json()
+        following = client.get(
+            f"/api/v1/groups/{group_id}/messages?limit=100&before_id={first[0]['id']}",
+            headers=_auth_header(token),
+        ).json()
+        assert {message["id"] for message in first + following} == set(message_ids)
+        assert client.get(
+            f"/api/v1/groups/{group_id}/messages?before_id=missing",
+            headers=_auth_header(token),
+        ).status_code == 404
+
+        other_token, other_group_id, _ = _create_group_with_members(1)
+        foreign = client.post(
+            f"/api/v1/groups/{other_group_id}/messages",
+            json={"content": "Foreign cursor"},
+            headers=_auth_header(other_token),
+        ).json()
+        assert client.get(
+            f"/api/v1/groups/{group_id}/messages?before_id={foreign['id']}",
+            headers=_auth_header(token),
+        ).status_code == 404
 
     def test_group_lifecycle_corner_cases(self):
         token, group_id, user_ids = _create_group_with_members(2)

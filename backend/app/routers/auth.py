@@ -11,8 +11,9 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..config import settings
 from ..database import get_db
-from ..models import User, PhoneOtp, GroupMember, ReadingAssignment
+from ..models import User, RefreshToken, PhoneOtp, GroupMember, ReadingAssignment
 from ..schemas import (
     RegisterRequest,
     LoginRequest,
@@ -61,6 +62,20 @@ def _record_attempt(key: str) -> None:
     _attempts[key].append(time.monotonic())
 
 
+def _issue_tokens(user: User, db: Session) -> tuple[str, str]:
+    token_id = secrets.token_urlsafe(32)
+    token_version = user.token_version or 0
+    access_token = create_access_token(user.id, token_version)
+    refresh_token = create_refresh_token(user.id, token_version, token_id)
+    db.add(RefreshToken(
+        id=token_id,
+        user_id=user.id,
+        expires_at=datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days),
+    ))
+    db.commit()
+    return access_token, refresh_token
+
+
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def register(request: RegisterRequest, db: Session = Depends(get_db)):
     """Register a new user with email/password or phone/password.
@@ -96,8 +111,7 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
+    access_token, refresh_token = _issue_tokens(user, db)
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
@@ -124,8 +138,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             detail="Invalid email or password",
         )
 
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
+    access_token, refresh_token = _issue_tokens(user, db)
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
@@ -178,8 +191,7 @@ def social_auth(request: SocialAuthRequest, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
+    access_token, refresh_token = _issue_tokens(user, db)
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
@@ -277,8 +289,7 @@ def verify_otp(request: PhoneVerifyOtpRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
+    access_token, refresh_token = _issue_tokens(user, db)
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
@@ -302,14 +313,29 @@ def refresh_token(request: RefreshRequest, db: Session = Depends(get_db)):
 
     user_id = payload.get("sub")
     user = db.query(User).filter(User.id == user_id).first()
-    if not user or user.auth_provider == "deleted":
+    token_id = payload.get("jti")
+    stored_token = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.id == token_id, RefreshToken.user_id == user_id)
+        .with_for_update()
+        .first()
+        if token_id else None
+    )
+    if (
+        not user
+        or user.auth_provider == "deleted"
+        or payload.get("ver", 0) != (user.token_version or 0)
+        or not stored_token
+        or stored_token.revoked_at is not None
+        or stored_token.expires_at <= datetime.utcnow()
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+            detail="Invalid or expired refresh token",
         )
 
-    access_token = create_access_token(user.id)
-    new_refresh_token = create_refresh_token(user.id)
+    stored_token.revoked_at = datetime.utcnow()
+    access_token, new_refresh_token = _issue_tokens(user, db)
 
     return AuthResponse(
         user=UserResponse.model_validate(user),
@@ -415,5 +441,10 @@ def change_password(
         )
 
     current_user.password_hash = hash_password(request.new_password)
+    current_user.token_version = (current_user.token_version or 0) + 1
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == current_user.id,
+        RefreshToken.revoked_at.is_(None),
+    ).update({RefreshToken.revoked_at: datetime.utcnow()}, synchronize_session=False)
     db.commit()
     return {"detail": "Password changed successfully"}

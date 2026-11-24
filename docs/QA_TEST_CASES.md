@@ -391,6 +391,68 @@ Use a real native device and inspect pending notifications as well as delivered 
 | NOTIF-13 | P1 UI/OPS | Android idle/battery saver/reboot; OS notification limit; app force-stop. | Platform behavior measured/disclosed; no promise of exact delivery under inexact scheduling or force-stop restrictions. |
 | NOTIF-14 | P1 UI | Open notification preferences/group schedule on web or unsupported desktop. | Graceful unsupported state; no core feature crash or misleading push-notification guarantee. |
 
+Firebase debug settings remain separate from device opt-in. Android now has
+explicit local delivery wiring; web remains storage-only. The latest full suite
+passes 2,203 Flutter tests, including 32 new device-planner/driver-double/widget
+checks after the 54 storage checks. Earlier eight non-clearing emulator-rule
+checks are historical evidence, not rerun for this Flutter-only increment.
+Authenticated Flutter browser/device editing and actual Android delivery remain
+QA gates; browser Firestore 8085 was previously unreachable and was not rechecked.
+
+| ID | Priority / layer | Scenario and steps | Expected result |
+|---|---|---|---|
+| FIRE-REM-01 | P0 UI/rules | Open absent canonical schedule as member/admin/lead without device opt-in. | Missing defaults stay unsaved; member read-only; no profile/global lookup, legacy API call, permission request or delivery enablement. |
+| FIRE-REM-02 | P0 UI/rules | Confirm/cancel admin/lead save; read as member/outsider/departed member. | Cancel writes nothing; confirmed save has exact audit/revision; current members read; outsiders/departed cannot access. |
+| FIRE-REM-03 | P0 rules | Raw SDK writes with extra/missing fields, invalid times/order/timezone, forged role/audit/version, same-batch promotion; list/delete. | Denied; no broadened settings access or self-authorization. |
+| FIRE-REM-04 | P0 SDK/UI | Concurrent edit or role/account change before save, during transaction retry or while confirmation is open. | No stale overwrite or old-account dialog dispatch; server verification required, draft retained where appropriate. |
+| FIRE-REM-05 | P0 SDK/UI | Uncertain write versus acknowledged write with failed reload; retry read and restore draft. | Never blindly retry a write; explicit read/restore; cache/pending/wrong-scope snapshots never become authoritative. |
+| FIRE-REM-06 | P1 UI/device | Native picker, invalid weekly ordering, 320px double-sized text; inspect notification channel. | Scrollable editor/confirmation; invalid save disabled; no permission request or enablement without explicit device confirmation. |
+| FIRE-REM-07 | P0 UI/device | Explicit device confirmation; cancel, deny/revoke permission, complete work, change settings, leave group or switch account. | No load-time permission prompts; only verified own work queued; reconcile/cancel on changes; new account requires device opt-in. |
+| FIRE-REM-08 | P0 unit/device | Confirm India Monday; undated/outside-week work; 64-slot overflow; partial scheduling, crash journal or cancellation failure. | No inferred dates; stable owned IDs; counts disclosed; recover owned IDs without canceling legacy IDs; failed cleanup is unverified with explicit retry. |
+| FIRE-REM-09 | P0 native E2E | Real Android permission, delivery, reboot, app resume, battery saver and force-stop. | Measure actual inexact delivery and seven-day refresh horizon. Pending physical-device validation; doubles/builds do not certify this. |
+
+#### Firebase Group Archive
+
+Firebase group archive follow-up (2026-10-15): 2,218 full-suite Flutter tests,
+16 non-clearing emulator rule checks (eight archive/eight reminder), and debug
+web/APK builds pass. These supersede the reminder-only counts above. Scoped
+analysis reports no errors/warnings and six Riverpod deprecation infos. Actual
+authenticated Flutter browser/device QA and Android notification delivery remain
+pending; the existing browser Firestore-8085 blocker was not rechecked.
+
+| ID | Priority / layer | Scenario and steps | Expected result |
+|---|---|---|---|
+| FIRE-ARCH-01 | P0 UI/rules | Admin confirms/cancels archive then independently confirms restore. | Cancel writes nothing; actual admin only; toggle, revision and server audit; no historical erasure. |
+| FIRE-ARCH-02 | P0 rules | Members/leads/outsiders, spoofed claims or same-batch self-promotion attempt archive/restore. | Denied by canonical prewrite authority; no broadened read permissions. |
+| FIRE-ARCH-03 | P0 SDK/rules | Stale Timestamp/revision, malformed/partial metadata, mixed settings/lifecycle writes, metadata removal or lifecycle bootstrap. | Denied; exact-version transaction checks, no stale overwrite or revision reset. |
+| FIRE-ARCH-04 | P0 rules | Raw archived writes to content, progress, reports/moderation, membership/departure, names, invites and group settings. | Every group mutation denied except standalone restore; personal profile/preferences stay owner-writable. |
+| FIRE-ARCH-05 | P0 rules | Batch archive or restore together with a group mutation. | Prewrite and postwrite guards deny the entire batch; ordinary writes require a separate active-group commit. |
+| FIRE-ARCH-06 | P1 UI/SDK | Open archived discovery, reading/history, rosters, child pages and admin reports; change account during confirmation. | Retained authorized reads; read-only controls; old-account confirmation cannot dispatch. |
+| FIRE-ARCH-07 | P0 unit/device | Queue own reading work, archive, refresh/resume, restore and refresh. | Archived reading slots removed, daily verses independent, no inferred dates/permission prompts. Other-device offline cancellation is not guaranteed. |
+| FIRE-ARCH-08 | P1 UI | Open archive confirmation at 320px with doubled text; simulate uncertain commit/reload failure. | Scrollable usable dialog; explicit verification, no automatic resend or false acknowledgment. |
+| FIRE-ARCH-09 | P0 rules | Commit 48 assignments across 12 target UIDs before archive, while archived and after restore. | Active/restored batches succeed within rules read limits; archived batch fails atomically. |
+
+#### Firebase Assignment And Membership History
+
+Lifecycle follow-up (2026-10-15): **2,254 full-suite Flutter tests** (36 new),
+**22 non-clearing emulator tests**, Firebase debug web/APK builds. Scoped analysis
+has no errors/warnings and four existing Riverpod deprecation infos. SDK doubles
+and emulator rules do not certify actual authenticated Flutter browser/device
+flows or physical Android delivery; the prior browser Firestore-8085 forwarding
+blocker was not rechecked. No fixture clearing, production/dependency/default
+changes, permanent erasure, commits or pushes.
+
+| ID | Priority / layer | Scenario and steps | Expected result |
+|---|---|---|---|
+| FIRE-LIFE-01 | P0 rules/SDK | Archive a completed assignment and inspect retained version zero; attempt raw progress/history edits or deletion. | Exact immutable before-image; archived completion retained but cannot count as active work or accept progress. |
+| FIRE-LIFE-02 | P0 rules/UI | Confirm fresh active version, explicitly choose a new UTC date or no date. | New creation audit, revision increment and Not started progress; no old-date/status inheritance. |
+| FIRE-LIFE-03 | P0 rules/SDK | Reassign to a different current member, then repeat with an existing target document or failed commit. | Source archive/history and target creation are atomic; duplicate rejects everything without overwrite. |
+| FIRE-LIFE-04 | P0 rules/SDK | Attempt transition with missing/forged before-image, stale revision/progress nanoseconds, wrong actor/role or archived group. | Denied before partial application; transaction retries recheck account, group, role and exact version. |
+| FIRE-LIFE-05 | P0 rules/UI | Admin reviews departed UID and confirms/cancels restore; nonadmin or ordinary add/invite attempts rejoin. | Cancel writes nothing; admin-only coordinated fresh ordinary membership/discovery; exact immutable departure history. |
+| FIRE-LIFE-06 | P0 rules/unit | Repeat departure/restore cycles; attempt old assignment completion after rejoining. | Audit versions retained; fresh joinedAt excludes pre-rejoin work from tasks, group totals and reminders; explicit assignment replacement required. |
+| FIRE-LIFE-07 | P0 UI/SDK | Change account/role/target during confirmation or retry; simulate commit uncertainty and acknowledged reload failure. | Old authority/drafts cannot dispatch; ACK remains truthful, no automatic resend; new review/verification required. |
+| FIRE-LIFE-08 | P1 UI | Open reassignment and restoration at 320px with doubled text; inspect an exact retained version. | Scrollable confirmations, constrained controls, no overflow; history is read-only and server-scoped. |
+
 ### 13. Audio playback, download and media switching
 
 | ID | Priority / layer | Scenario and steps | Expected result |

@@ -4,6 +4,39 @@
 
 A Flutter app for individual and group readings of the **Shri Sai Satcharita**, backed by FastAPI and PostgreSQL. Android and web targets are checked in; other Flutter platforms need separate setup and certification.
 
+Firebase migration is in progress: an isolated Android/web **debug-only emulator
+authentication mode** now supports email/password and private profiles, with
+basic Firebase groups, manual assignments, assignee progress and bundled reading
+with explicit completion, a paginated own-task dashboard, group chat/reporting
+admin message/highlight moderation, group highlight sharing/reporting,
+confirmed group departure/member removal, admin settings/lead-role controls,
+opt-in group display names, personal reminder preference storage with separate device opt-in,
+bounded automatic schedule previews/commits, pattern suggestions and admin week advancement.
+Group reminder schedules now have member reads and admin/lead editing in
+Firestore, with explicit India-time weekly intent and revision-checked saves.
+Android debug mode now has separate device opt-in, native permissions and bounded
+local reminder scheduling. Web remains storage-only; actual device delivery is
+not yet certified. No FCM/server delivery or production cutover has occurred.
+Firebase groups now support revisioned admin archive/restore. Current members
+retain read-only history; archived groups reject content, progress, membership,
+invitation and schedule writes. No group data is deleted or silently reassigned.
+Assignments now have confirmed archive/reassignment and fresh active versions,
+with immutable retained history. Admins can explicitly restore departed members
+with fresh membership/discovery; prior work stays history-only until replaced.
+Private profile editing and logged-out password reset requests are also connected;
+the Auth emulator does not send real reset emails.
+Signed-in password changes require explicit current-password reauthentication.
+The Firebase assignment reader also supports explicit selected-text highlight sharing.
+Standalone bundled reading is available to guests and members without assignments.
+Public live darshan and festivals now use local Firebase Functions in that debug
+workspace, with explicit freshness and no legacy API fallback. Browser playback
+was verified; Android device playback and production deployment remain gates.
+FastAPI remains the default full app (superseded on 2026-11-22: Firebase is now
+the default on Android and web; see the
+[launch checklist](docs/LAUNCH_CHECKLIST.md)); end-to-end
+Firebase group/assignment device validation is pending. See
+[local Firebase mode](om_sai_ram/README.md#firebase-emulator-authentication-mode).
+
 ## Documentation
 
 - [Requirements specification](docs/REQUIREMENTS.md) — scope, roles, business rules, functional/nonfunctional requirements, acceptance criteria and open decisions.
@@ -11,6 +44,8 @@ A Flutter app for individual and group readings of the **Shri Sai Satcharita**, 
 - [QA test plan and cases](docs/QA_TEST_CASES.md) — prioritized functional, API, security, accessibility, offline and release tests; execution/defect templates.
 - [Flutter setup and architecture](om_sai_ram/README.md).
 - [Backend setup, configuration and API reference](backend/README.md).
+- [Android-first Firebase launch plan](docs/FIREBASE_ANDROID_LAUNCH.md) — free-tier boundaries, migration milestones and local testing.
+- [Firebase emulator setup](firebase/README.md) — isolated Auth/Firestore development, fixtures and security-rule tests.
 
 Documentation reviewed against source on **2026-10-13**. Test cases are a specification, not a claim that all features/platforms have passed QA.
 

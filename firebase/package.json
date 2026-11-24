@@ -1,0 +1,23 @@
+{
+    "name": "om-sai-ram-firebase-local",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "emulators": "node scripts/emulators.mjs start",
+        "emulators:functions": "node scripts/functions-emulators.mjs",
+        "test:functions": "npm --prefix functions run test:unit",
+        "check:feeds": "node scripts/check-feeds.mjs",
+        "seed": "node scripts/seed.mjs",
+        "test:unit": "node --test tests/local-config.test.mjs",
+        "test": "node scripts/emulators.mjs test"
+    },
+    "devDependencies": {
+        "@firebase/rules-unit-testing": "5.0.2",
+        "firebase": "12.19.0",
+        "firebase-tools": "15.33.0"
+    }
+}

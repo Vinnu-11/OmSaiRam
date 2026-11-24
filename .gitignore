@@ -29,6 +29,9 @@ migrate_working_dir/
 .pub/
 /build/
 pubspec.lock
+# This is an application: preserve tested FlutterFire resolutions, including
+# the version-specific web emulator session-restoration hook.
+!om_sai_ram/pubspec.lock
 
 # Android
 **/android/**/gradle-wrapper.jar
@@ -79,3 +82,13 @@ build/
 
 # Docker
 postgres_data/
+
+# Firebase local development (never commit credentials or emulator state)
+node_modules/
+.firebase/
+firebase/emulator-data/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+*-service-account.json
+service-account*.json

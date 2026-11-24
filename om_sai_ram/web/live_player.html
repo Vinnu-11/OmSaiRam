@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live Darshan</title>
+    <script id="firebase-feed" type="application/json">null</script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.7.3/dist/hls.min.js"
         integrity="sha384-cciJ0zi8d1uMKC2zJd7jvPY4HQt7W4ByUI/FlMkltvBi31aW61rcpVBhpmW8/NwX"
         crossorigin="anonymous"></script>
@@ -114,7 +115,7 @@
         <div id="error">
             <h2>Live Darshan Unavailable</h2>
             <p>The live stream is currently inactive or could not be loaded.</p>
-            <button id="retry-btn" onclick="loadStream()">Retry</button>
+            <button id="retry-btn" onclick="retryStream()">Retry</button>
         </div>
     </div>
     <script>
@@ -152,13 +153,17 @@
             }
         }
 
-        class VideoOnlyLoader extends Hls.DefaultConfig.loader {
+        class VideoOnlyLoader extends (globalThis.Hls?.DefaultConfig.loader ?? class { }) {
             load(context, config, callbacks) {
                 super.load(context, config, {
                     ...callbacks,
                     onSuccess: (response, stats, ctx, net) => {
                         if (response.data instanceof ArrayBuffer) {
                             dropAacFromPmt(new Uint8Array(response.data));
+                        } else if (typeof response.data === 'string') {
+                            // Playlists that declare AAC are rejected before any segment loads.
+                            response.data = response.data.replace(/(CODECS=")([^"]*)(")/g,
+                                (m, open, codecs, close) => open + codecs.split(',').filter(c => !/^\s*mp4a/i.test(c)).join(',') + close);
                         }
                         callbacks.onSuccess(response, stats, ctx, net);
                     },
@@ -176,64 +181,210 @@
         // Get the API base URL from query params or default to localhost:8000
         const params = new URLSearchParams(window.location.search);
         const apiBase = params.get('api') || 'http://localhost:8000/api/v1';
+        const embedded = document.getElementById('firebase-feed').textContent;
+        const firebaseMode = params.has('feed') || params.has('direct') || embedded !== 'null';
+        const liveSource = 'https://sai.org.in/node/504?width=960&height=540&iframe=true';
+        let generation = 0;
+        let request = null;
+        let reconnects = 0;
+
+        function retryStream(auto) {
+            if (!auto) reconnects = 0;
+            if (embedded !== 'null' && globalThis.FirebaseFeedRetry) {
+                globalThis.FirebaseFeedRetry.postMessage(auto ? 'auto' : 'retry');
+            } else { loadStream(); }
+        }
+
+        // Signed stream URLs expire and the temple feed drops at times: fetch a fresh URL a few times.
+        function reconnect(current) {
+            if (current !== generation) return;
+            if (hls) { hls.destroy(); hls = null; }
+            if (reconnects >= 3) { showError(); return; }
+            const delay = [2000, 5000, 15000][reconnects++];
+            spinner.style.display = 'block';
+            video.style.display = 'none';
+            setTimeout(() => { if (current === generation) retryStream(true); }, delay);
+        }
+
+        function playing() {
+            reconnects = 0;
+            if (embedded !== 'null') globalThis.FirebaseFeedRetry?.postMessage('playing');
+        }
+
+        function stopStream() {
+            generation++;
+            request?.abort();
+            if (hls) { hls.destroy(); hls = null; }
+            video.pause();
+        }
+        window.addEventListener('pagehide', stopStream);
+
+        function functionsEndpoint() {
+            const endpoint = new URL(params.get('feed'));
+            if (params.size !== 1 || endpoint.protocol !== 'http:' ||
+                !['localhost', '127.0.0.1'].includes(endpoint.hostname) ||
+                endpoint.port !== '5001' || endpoint.username || endpoint.password ||
+                endpoint.search || endpoint.hash || endpoint.pathname !==
+                '/demo-om-sai-ram/us-central1/liveDarshan') throw new Error('Invalid local endpoint');
+            return endpoint.href;
+        }
+
+        function firebaseStream(data) {
+            if (!data || Object.keys(data).sort().join(',') !== 'fetchedAt,freshUntil,sourceUrl,stale,url' ||
+                data.sourceUrl !== 'https://sai.org.in/node/504?width=960&height=540&iframe=true' ||
+                data.stale !== false || typeof data.url !== 'string') throw new Error('Invalid stream');
+            const fetched = Date.parse(data.fetchedAt);
+            const until = Date.parse(data.freshUntil);
+            if (!Number.isFinite(fetched) || !Number.isFinite(until) ||
+                new Date(fetched).toISOString() !== data.fetchedAt ||
+                new Date(until).toISOString() !== data.freshUntil ||
+                until - fetched !== 30000 || fetched > Date.now() + 300000 || until <= Date.now()) throw new Error('Expired stream');
+            return safeStream(data.url);
+        }
+
+        function safeStream(url) {
+            if (typeof url !== 'string' || url.length > 4096) throw new Error('Invalid stream');
+            const stream = new URL(url);
+            const host = stream.hostname.replace(/\.$/, '');
+            if (stream.protocol !== 'https:' || stream.username || stream.password || stream.port || stream.hash ||
+                !host.includes('.') || host.includes(':') || /^\d+\.\d+\.\d+\.\d+$/.test(host) ||
+                /(^|\.)(localhost|local|internal)$/.test(host) || !stream.pathname.toLowerCase().endsWith('.m3u8')) throw new Error('Unsafe stream');
+            return stream.href;
+        }
+
+        function newSignal(ms) {
+            request?.abort();
+            request = new AbortController();
+            const active = request;
+            setTimeout(() => active.abort(), ms);
+            return active.signal;
+        }
+
+        async function readText(resp, limit) {
+            const reader = resp.body.getReader();
+            const chunks = [];
+            let bytes = 0;
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    bytes += value.length;
+                    if (bytes > limit) throw new Error('Feed too large');
+                    chunks.push(value);
+                }
+            } finally { await reader.cancel(); reader.releaseLock(); }
+            const body = new Uint8Array(bytes);
+            let offset = 0;
+            for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.length; }
+            return new TextDecoder().decode(body);
+        }
+
+        async function functionsStream() {
+            const resp = await fetch(functionsEndpoint(), {
+                credentials: 'omit', cache: 'no-store', redirect: 'error', signal: newSignal(8000)
+            });
+            if (!resp.ok || !resp.headers.get('content-type')?.toLowerCase().startsWith('application/json')) throw new Error('Invalid feed');
+            return firebaseStream(JSON.parse(await readText(resp, 262144)));
+        }
+
+        // The temple page sends Access-Control-Allow-Origin: *, so it works without the feed service.
+        async function directStream() {
+            const resp = await fetch(liveSource, {
+                credentials: 'omit', cache: 'no-store', redirect: 'follow', signal: newSignal(15000)
+            });
+            const final = new URL(resp.url || liveSource);
+            if (!resp.ok || final.protocol !== 'https:' || !['sai.org.in', 'www.sai.org.in'].includes(final.hostname) ||
+                !resp.headers.get('content-type')?.toLowerCase().startsWith('text/html')) throw new Error('Source unavailable');
+            const page = await readText(resp, 1048576);
+            const urls = new Set();
+            for (const match of page.matchAll(/"newurl"\s*:\s*("(?:\\.|[^"\\])*")/g)) urls.add(safeStream(JSON.parse(match[1])));
+            if (urls.size !== 1) throw new Error('Invalid stream');
+            return [...urls][0];
+        }
 
         async function loadStream() {
+            const current = ++generation;
+            request?.abort();
             spinner.style.display = 'block';
             video.style.display = 'none';
             errorDiv.style.display = 'none';
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
             if (hls) {
                 hls.destroy();
                 hls = null;
             }
+            let mediaRecovered = false;
 
             try {
-                const resp = await fetch(`${apiBase}/live-darshan/stream-url`);
-                if (!resp.ok) throw new Error(`API error: ${resp.status}`);
-                const data = await resp.json();
-                const streamUrl = data.url;
+                let streamUrl;
+                if (embedded !== 'null') {
+                    streamUrl = firebaseStream(JSON.parse(embedded));
+                } else if (!firebaseMode) {
+                    const resp = await fetch(`${apiBase}/live-darshan/stream-url`, {
+                        credentials: 'omit', cache: 'no-store', redirect: 'follow', signal: newSignal(15000)
+                    });
+                    if (!resp.ok) throw new Error('Feed unavailable');
+                    streamUrl = (await resp.json()).url;
+                } else {
+                    try {
+                        streamUrl = await functionsStream();
+                    } catch (e) {
+                        if (current !== generation) return;
+                        streamUrl = await directStream();
+                    }
+                }
+                if (current !== generation) return;
+                video.onplaying = () => { if (current === generation) playing(); };
 
-                if (Hls.isSupported()) {
+                if (globalThis.Hls?.isSupported()) {
                     hls = new Hls({
                         enableWorker: true,
                         lowLatencyMode: true,
-                        ...(videoOnly ? { fLoader: VideoOnlyLoader } : {}),
+                        ...(videoOnly ? { fLoader: VideoOnlyLoader, pLoader: VideoOnlyLoader } : {}),
                     });
                     hls.loadSource(streamUrl);
                     hls.attachMedia(video);
                     hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        if (current !== generation) return;
                         spinner.style.display = 'none';
                         video.style.display = 'block';
                         notice.style.display = videoOnly ? 'block' : 'none';
                         video.play().catch(() => { });
                     });
                     hls.on(Hls.Events.ERROR, (event, data) => {
+                        if (current !== generation) return;
                         if (!videoOnly && data.type === Hls.ErrorTypes.MEDIA_ERROR &&
-                            /audio decoder/i.test(String(data.error))) {
+                            (/audio decoder/i.test(String(data.error)) ||
+                                data.details === 'manifestIncompatibleCodecsError')) {
                             videoOnly = true;
                             setTimeout(loadStream, 0);
                             return;
                         }
-                        if (data.fatal) showError();
+                        if (!data.fatal) return;
+                        if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !mediaRecovered) {
+                            mediaRecovered = true;
+                            hls.recoverMediaError();
+                            return;
+                        }
+                        reconnect(current);
                     });
                 } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     // Safari native HLS support
                     video.src = streamUrl;
-                    video.addEventListener('loadedmetadata', () => {
+                    video.onloadedmetadata = () => {
+                        if (current !== generation) return;
                         spinner.style.display = 'none';
                         video.style.display = 'block';
                         video.play().catch(() => { });
-                    });
-                    video.addEventListener('error', () => {
-                        spinner.style.display = 'none';
-                        video.style.display = 'none';
-                        errorDiv.style.display = 'block';
-                    });
+                    };
+                    video.onerror = () => reconnect(current);
                 } else {
                     throw new Error('HLS not supported');
                 }
             } catch (e) {
-                console.error('Live Darshan load error:', e);
-                showError();
+                if (current === generation) showError();
             }
         }
 

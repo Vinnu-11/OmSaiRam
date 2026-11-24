@@ -2,6 +2,7 @@
 # Group chat router — group messages and chapter highlight comments.
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -50,10 +51,14 @@ def get_messages(
 
     if before_id:
         anchor = db.query(GroupMessage).filter(GroupMessage.id == before_id).first()
-        if anchor:
-            query = query.filter(GroupMessage.created_at < anchor.created_at)
+        if not anchor or anchor.group_id != group_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message cursor not found")
+        query = query.filter(or_(
+            GroupMessage.created_at < anchor.created_at,
+            and_(GroupMessage.created_at == anchor.created_at, GroupMessage.id < anchor.id),
+        ))
 
-    messages = query.order_by(GroupMessage.created_at.desc()).limit(limit).all()
+    messages = query.order_by(GroupMessage.created_at.desc(), GroupMessage.id.desc()).limit(limit).all()
 
     result = []
     for msg in messages:

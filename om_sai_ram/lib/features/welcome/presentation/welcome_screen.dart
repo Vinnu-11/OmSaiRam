@@ -3,10 +3,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/router_service.dart';
+import '../../../shared/widgets/baba_image.dart';
 
 /// Welcome/onboarding screen shown on first launch or when not logged in.
 ///
@@ -61,48 +61,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 children: [
                   const Spacer(flex: 1),
 
-                  // Baba image from official Shirdi Sansthan
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: CachedNetworkImage(
-                      imageUrl: 'https://sai.org.in/sites/default/files/video.jpg',
-                      width: double.infinity,
-                      height: 200,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        height: 200,
-                        decoration: BoxDecoration(
-                          color: AppColors.saffron.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            Icons.temple_hindu_rounded,
-                            size: 60,
-                            color: AppColors.saffron,
-                          ),
-                        ),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        height: 200,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [AppColors.saffron, AppColors.deepOrange],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.temple_hindu_rounded,
-                            size: 60,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  const BabaImage(width: 240, height: 260,
+                    borderRadius: 20, alignment: Alignment.topCenter),
 
                   const SizedBox(height: 24),
 

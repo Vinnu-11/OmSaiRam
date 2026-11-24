@@ -72,6 +72,12 @@ def create_assignment(
     Only admins and group leads can create assignments.
     Prevents duplicate reading units for the same member and week.
     """
+    if request.week_number > 10000:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Week number exceeds the supported scheduling range",
+        )
+
     membership = (
         db.query(GroupMember)
         .filter(
@@ -275,10 +281,6 @@ def auto_schedule(
     for week_offset in range(request.weeks_ahead):
         week_number = group.current_week + week_offset
         monday = _monday_of_week(now, week_offset)
-        last_member_idx = member_count - 1
-
-        # For extend_last: track if we already extended this week
-        extended_this_week = False
 
         for member_index, member in enumerate(members):
             member_start = _member_chapter_start(
@@ -294,25 +296,17 @@ def auto_schedule(
             for slot in range(slots):
                 position = member_start + slot
                 chapter_number = unit_number(position, units, total_chapters)
-                resolved_position = _apply_remainder(position, remainder_mode, len(units), len(units))
-                resolved = units[resolved_position - 1] if resolved_position is not None else None
-
-                if resolved is None:
-                    # Chapter is past end of book and mode is not cycle
-                    if remainder_mode == "extend_last" and member_index == last_member_idx and not extended_this_week:
-                        # Already handled by naturalntruncation; nothing to extend
-                        pass
-                    elif remainder_mode in ("manual", "truncate", "extend_last", "round_robin"):
-                        remainder_chapters.append({
-                            "week_number": week_number,
-                            "chapter_number": chapter_number,
-                            "user_id": member.user_id,
-                        })
-                    continue
-
-                # round_robin: give extras back to early members
-                if remainder_mode == "round_robin" and chapter_number > total_chapters:
+                if position > len(units) and remainder_mode in ("cycle", "round_robin"):
                     resolved = units[(position - 1) % len(units)]
+                elif position > len(units):
+                    remainder_chapters.append({
+                        "week_number": week_number,
+                        "chapter_number": chapter_number,
+                        "user_id": member.user_id,
+                    })
+                    continue
+                else:
+                    resolved = units[position - 1]
 
                 chapter = db.query(Chapter).filter(Chapter.number == resolved).first()
                 if not chapter:
@@ -336,6 +330,12 @@ def auto_schedule(
                     .first()
                 )
                 if existing:
+                    if position > len(units):
+                        remainder_chapters.append({
+                            "week_number": week_number,
+                            "chapter_number": chapter_number,
+                            "user_id": member.user_id,
+                        })
                     continue
 
                 assignment = ReadingAssignment(
@@ -429,10 +429,33 @@ def suggest_schedule(
             detail="Provide at least 2 hints (positions 0 and 1) to detect a pattern",
         )
 
-    step = (
-        unit_position(hints_sorted[1].chapter_start, units, total_chapters)
-        - unit_position(hints_sorted[0].chapter_start, units, total_chapters)
-    )
+    positions = [hint.position for hint in hints_sorted]
+    if len(set(positions)) != len(positions) or positions[-1] >= member_count:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hint positions must be unique members in this group",
+        )
+
+    first_position = hints_sorted[0].position
+    first_chapter = unit_position(hints_sorted[0].chapter_start, units, total_chapters)
+    position_gap = hints_sorted[1].position - first_position
+    chapter_gap = unit_position(hints_sorted[1].chapter_start, units, total_chapters) - first_chapter
+    if chapter_gap <= 0 or chapter_gap % position_gap:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hints must define a forward, consistent progression",
+        )
+    step = chapter_gap // position_gap
+    base_chapter = first_chapter - first_position * step
+    if any(
+        unit_position(hint.chapter_start, units, total_chapters)
+        != base_chapter + hint.position * step
+        for hint in hints_sorted
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hints must define a forward, consistent progression",
+        )
 
     if step == W:
         detected_mode = "non_overlapping"
@@ -440,9 +463,6 @@ def suggest_schedule(
         detected_mode = "dense"
     else:
         detected_mode = "custom"
-
-    # Base chapter for position 0 in the hint week
-    base_chapter = unit_position(hints_sorted[0].chapter_start, units, total_chapters)
 
     # Build a position → chapter_start lookup for manually-provided hints
     manual_positions = {
@@ -458,16 +478,12 @@ def suggest_schedule(
     # Week 0 = request.week_number, Week 1 = request.week_number + 1, …
     for week_idx in range(1 + request.weeks_ahead):
         week_number = request.week_number + week_idx
-        week_advance = week_idx * W   # how much the window moves each week
+        confirmed_step = 1 if detected_mode == "dense" else W
+        week_advance = week_idx * (W if detected_mode == "dense" else member_count * W)
 
         for pos, member in enumerate(members):
-            # chapter_start for this member in this week
-            if pos in manual_positions and week_idx == 0:
-                ch_start = manual_positions[pos]
-                is_manual = True
-            else:
-                ch_start = base_chapter + week_advance + pos * step
-                is_manual = False
+            ch_start = base_chapter + week_advance + pos * confirmed_step
+            is_manual = week_idx == 0 and manual_positions.get(pos) == ch_start
 
             # Build list of chapter numbers for this slot
             chapter_nums: list[int] = []

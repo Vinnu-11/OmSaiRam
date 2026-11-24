@@ -1,0 +1,25 @@
+{
+    "functions": {
+        "source": "functions",
+        "codebase": "public-feeds",
+        "runtime": "nodejs22"
+    },
+    "emulators": {
+        "functions": {
+            "host": "127.0.0.1",
+            "port": 5001
+        },
+        "hub": {
+            "host": "127.0.0.1",
+            "port": 4401
+        },
+        "logging": {
+            "host": "127.0.0.1",
+            "port": 4501
+        },
+        "ui": {
+            "enabled": false
+        },
+        "singleProjectMode": true
+    }
+}

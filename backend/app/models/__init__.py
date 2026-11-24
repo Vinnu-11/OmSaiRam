@@ -1,6 +1,7 @@
 # Om Sai Ram
 from .models import (
     User,
+    RefreshToken,
     Group,
     GroupMember,
     Chapter,
@@ -15,6 +16,7 @@ from .models import (
 
 __all__ = [
     "User",
+    "RefreshToken",
     "Group",
     "GroupMember",
     "Chapter",

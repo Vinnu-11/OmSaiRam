@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "run_id": "QA-2026-11-23-02",
+  "executed_at_utc": "2026-11-24T07:49:35Z",
+  "repository": {
+    "commit": "f109fada8d3e2c388d67e824f379f26e60f8466b",
+    "working_tree_clean": false,
+    "tracked_modified": 46,
+    "untracked": 219,
+    "note": "The tested snapshot includes uncommitted work; the commit alone does not reproduce it."
+  },
+  "host": {
+    "os": "Ubuntu 22.04.5 LTS",
+    "flutter": "3.44.4",
+    "dart": "3.12.2",
+    "node": "25.1.0",
+    "npm": "11.6.2",
+    "python": "3.10.12",
+    "default_java": "OpenJDK 17.0.21.1",
+    "firebase_emulator_java": "OpenJDK 21.0.12.1 LTS",
+    "chrome": "145.0.7632.159"
+  },
+  "test_environment": {
+    "firebase_project": "demo-om-sai-ram",
+    "firebase_auth_emulator": "127.0.0.1:9099",
+    "firestore_emulator": "127.0.0.1:8085",
+    "web_preview": "http://localhost:8126",
+    "browser_viewport": "390x844",
+    "production_credentials_used": false,
+    "production_deployment_performed": false
+  },
+  "limitations": [
+    "No physical Android device or tablet was available.",
+    "No real Firebase project, SMS sender, OAuth provider, notification delivery, or production deployment was exercised.",
+    "No Firefox, Safari, Edge, iOS, iPadOS, or release-hosting certification was performed.",
+    "FastAPI catalogue probes and migration smoke used isolated SQLite databases, not PostgreSQL migration or concurrency certification.",
+    "Linguistic, OCR, and source-text accuracy require qualified human reviewers."
+  ]
+}

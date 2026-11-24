@@ -3,6 +3,15 @@
 
 import 'package:equatable/equatable.dart';
 
+/// Local assembly provenance only. Offsets are UTF-16 in the displayed text;
+/// these ranges do not establish original paragraph indices.
+class ChapterSourceSegment {
+  final int start, end, chapterStart, chapterEnd;
+  final String language;
+  const ChapterSourceSegment(this.start, this.end, this.chapterStart,
+      this.chapterEnd, this.language);
+}
+
 /// Represents a single chapter of the Shri Sai Satcharita.
 ///
 /// Content is stored as plain text, loaded from bundled JSON
@@ -16,6 +25,7 @@ class Chapter extends Equatable {
   final String? chapterLabel;
   final String language;
   final int version;
+  final List<ChapterSourceSegment> sourceSegments;
 
   const Chapter({
     required this.id,
@@ -26,6 +36,7 @@ class Chapter extends Equatable {
     this.chapterLabel,
     this.language = 'en',
     this.version = 1,
+    this.sourceSegments = const [],
   });
 
   /// Last Marathi adhyaya covered by this entry ("16-17" -> 17).

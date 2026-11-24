@@ -34,9 +34,9 @@ from sqlalchemy.pool import StaticPool
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
-from app.middleware.auth import create_access_token, create_refresh_token, hash_password
+from app.middleware.auth import create_access_token, create_refresh_token, decode_token, hash_password
 from app.models import (Chapter, ChapterHighlightComment, Group, GroupMember,
-                        GroupMessage, GroupNotificationSchedule, PhoneOtp,
+                        GroupMessage, GroupNotificationSchedule, PhoneOtp, RefreshToken,
                         ReadingAssignment, ReadingProgress, User)
 from app.routers import auth
 
@@ -106,6 +106,14 @@ class Fixture:
         self.db.commit()
         self.tokens = {r: create_access_token(r) for r in self.users}
         self.refresh = {r: create_refresh_token(r) for r in self.users}
+        for role, token in self.refresh.items():
+            payload = decode_token(token)
+            self.db.add(RefreshToken(
+                id=payload["jti"],
+                user_id=role,
+                expires_at=datetime.utcfromtimestamp(payload["exp"]),
+            ))
+        self.db.commit()
         SECRETS.update(self.tokens.values())
         SECRETS.update(self.refresh.values())
         auth._attempts.clear()
@@ -531,7 +539,7 @@ def remainder(f, mode):
     data = f.http(cases, f"Remainder mode {mode}", f.request("POST", "/assignments/auto-schedule", body={
         "group_id": "G1", "start_chapter": start, "weeks_ahead": 1 if mode=="cycle" else 2, "remainder_mode": mode}), 201)
     actual = [a["chapter_number"] for a in data.get("assignments", [])]
-    expected = [51, 1] if mode=="cycle" else [49, 50, 51]
+    expected = [51, 1] if mode=="cycle" else [49, 50, 51, 1] if mode=="round_robin" else [49, 50, 51]
     f.check(cases, "Book-end allocations without phantom chapters", actual, expected)
     if mode in ("manual", "truncate"):
         f.check(cases, "One unassigned unit explicitly reported", len(data.get("remainder_chapters", [])), 1)

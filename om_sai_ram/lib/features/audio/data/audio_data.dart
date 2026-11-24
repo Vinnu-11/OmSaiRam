@@ -146,6 +146,15 @@ AudioTrack? audioTrackForChapter(String langCode, int chapterNumber) {
   return null;
 }
 
+List<AudioTrack> audioTracksForChapters(Iterable<(String, int)> chapters) {
+  final tracks = <String, AudioTrack>{};
+  for (final (language, number) in chapters) {
+    final track = audioTrackForChapter(language, number);
+    if (track != null) tracks.putIfAbsent(track.fileName, () => track);
+  }
+  return tracks.values.toList();
+}
+
 /// Returns true if [fileName] covers [chapterNumber].
 /// Handles: `te_ch01.mp3` (single), `hi_ch16_17.mp3` (range).
 bool _trackCoversChapter(String fileName, int chapterNumber) {

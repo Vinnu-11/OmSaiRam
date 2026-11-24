@@ -7,14 +7,14 @@ import 'package:flutter/widgets.dart';
 
 bool _registered = false;
 
-Widget buildIframe(String url) {
+Widget buildIframe(String url, {Key? key}) {
   const viewType = 'live-darshan-iframe';
 
   if (!_registered) {
     _registered = true;
-    ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId) {
+    ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId, {Object? params}) {
       final iframe = html.IFrameElement()
-        ..src = url
+        ..src = params as String
         ..style.border = 'none'
         ..style.width = '100%'
         ..style.height = '100%'
@@ -25,5 +25,5 @@ Widget buildIframe(String url) {
     });
   }
 
-  return const HtmlElementView(viewType: viewType);
+  return HtmlElementView(key: key, viewType: viewType, creationParams: url);
 }

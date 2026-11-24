@@ -2,6 +2,7 @@
 # Authentication middleware — JWT token verification and user extraction.
 
 from datetime import datetime, timedelta
+import secrets
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -31,7 +32,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(user_id: str) -> str:
+def create_access_token(user_id: str, token_version: int = 0) -> str:
     """Create a short-lived JWT access token.
 
     Args:
@@ -45,11 +46,16 @@ def create_access_token(user_id: str) -> str:
         "sub": user_id,
         "exp": expire,
         "type": "access",
+        "ver": token_version,
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
-def create_refresh_token(user_id: str) -> str:
+def create_refresh_token(
+    user_id: str,
+    token_version: int = 0,
+    token_id: Optional[str] = None,
+) -> str:
     """Create a long-lived JWT refresh token.
 
     Args:
@@ -63,6 +69,8 @@ def create_refresh_token(user_id: str) -> str:
         "sub": user_id,
         "exp": expire,
         "type": "refresh",
+        "ver": token_version,
+        "jti": token_id or secrets.token_urlsafe(32),
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
@@ -115,7 +123,11 @@ def get_current_user(
         )
 
     user = db.query(User).filter(User.id == user_id).first()
-    if user is None or user.auth_provider == "deleted":
+    if (
+        user is None
+        or user.auth_provider == "deleted"
+        or payload.get("ver", 0) != (user.token_version or 0)
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",

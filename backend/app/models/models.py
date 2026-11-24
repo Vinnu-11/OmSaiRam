@@ -36,11 +36,24 @@ class User(Base):
     password_hash = Column(String(255), nullable=True)  # Null for social/phone auth users
     auth_provider = Column(String(50), default="email")  # email, google, apple, phone
     avatar_url = Column(String(500), nullable=True)
+    token_version = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     memberships = relationship("GroupMember", back_populates="user")
+
+
+class RefreshToken(Base):
+    """One active refresh-token generation in a rotating login session."""
+
+    __tablename__ = "refresh_tokens"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 class Group(Base):

@@ -7,7 +7,7 @@ class AppStrings {
   AppStrings._();
 
   // App
-  static const String appName = 'Om Sai Ram';
+  static const String appName = 'Om Sai Sannidhi';
   static const String appTagline = 'Group readings of the Sai Satcharita';
 
   // Auth

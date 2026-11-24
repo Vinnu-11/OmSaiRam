@@ -1,6 +1,6 @@
-// Om Sai Ram
-// Application theme — minimalist, warm saffron/white palette.
-// Designed for readability and spiritual calm.
+// Om Sai Sannidhi
+// Application theme: "Temple at dawn". Built for readers aged 40 to 90:
+// large type, strong contrast and generous touch targets everywhere.
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,294 +9,197 @@ import 'app_colors.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get lightTheme {
+  static ThemeData get lightTheme => _build(
+        brightness: Brightness.light,
+        primary: AppColors.kumkum,
+        onPrimary: AppColors.white,
+        accent: AppColors.kesari,
+        background: AppColors.sandal,
+        surface: AppColors.white,
+        text: AppColors.ink,
+        muted: AppColors.inkMuted,
+        outline: AppColors.sandalOutline,
+      );
+
+  static ThemeData get darkTheme => _build(
+        brightness: Brightness.dark,
+        primary: const Color(0xFFFFC078),
+        onPrimary: AppColors.ink,
+        accent: AppColors.marigold,
+        background: const Color(0xFF1A1208),
+        surface: const Color(0xFF2A1F10),
+        text: const Color(0xFFF6E7C8),
+        muted: const Color(0xFFCDB894),
+        outline: const Color(0xFF5A4526),
+      );
+
+  static ThemeData _build({
+    required Brightness brightness,
+    required Color primary,
+    required Color onPrimary,
+    required Color accent,
+    required Color background,
+    required Color surface,
+    required Color text,
+    required Color muted,
+    required Color outline,
+  }) {
+    // Mukta is drawn for Devanagari and Latin together, so Hindi and Marathi
+    // sit at the same visual size as English.
+    TextStyle type(double size, FontWeight weight, Color color, {double? height}) =>
+        GoogleFonts.mukta(fontSize: size, fontWeight: weight, color: color, height: height);
+    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
+    const buttonSize = Size(64, 56);
+    const buttonPadding = EdgeInsets.symmetric(horizontal: 24, vertical: 14);
+    final buttonText = type(18, FontWeight.w700, primary);
+    OutlineInputBorder field(Color color, double width) => OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: color, width: width));
+    final scheme = ColorScheme.fromSeed(
+      brightness: brightness,
+      seedColor: AppColors.kumkum,
+      primary: primary,
+      onPrimary: onPrimary,
+      secondary: accent,
+      onSecondary: AppColors.ink,
+      surface: surface,
+      onSurface: text,
+      onSurfaceVariant: muted,
+      outline: outline,
+      error: brightness == Brightness.light ? const Color(0xFFB3261E) : const Color(0xFFFFB4AB),
+    );
+
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: AppColors.saffron,
-        primary: AppColors.saffron,
-        secondary: AppColors.deepOrange,
-        surface: AppColors.white,
-        background: AppColors.cream,
-        onPrimary: AppColors.white,
-        onSecondary: AppColors.white,
-        onSurface: AppColors.darkText,
-        onBackground: AppColors.darkText,
-      ),
-      scaffoldBackgroundColor: AppColors.cream,
-
-      // App Bar — clean, flat, no elevation
-      appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.white,
-        foregroundColor: AppColors.darkText,
-        elevation: 0,
-        centerTitle: true,
-        titleTextStyle: GoogleFonts.poppins(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.darkText,
-        ),
-      ),
-
-      // Text theme — Poppins for UI, readable and modern
+      colorScheme: scheme,
+      scaffoldBackgroundColor: background,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      visualDensity: VisualDensity.standard,
       textTheme: TextTheme(
-        displayLarge: GoogleFonts.poppins(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: AppColors.darkText,
-        ),
-        displayMedium: GoogleFonts.poppins(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-          color: AppColors.darkText,
-        ),
-        headlineMedium: GoogleFonts.poppins(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: AppColors.darkText,
-        ),
-        titleLarge: GoogleFonts.poppins(
-          fontSize: 18,
-          fontWeight: FontWeight.w500,
-          color: AppColors.darkText,
-        ),
-        titleMedium: GoogleFonts.poppins(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: AppColors.darkText,
-        ),
-        bodyLarge: GoogleFonts.notoSerif(
-          fontSize: 16,
-          height: 1.6,
-          color: AppColors.darkText,
-        ),
-        bodyMedium: GoogleFonts.poppins(
-          fontSize: 14,
-          color: AppColors.mediumText,
-        ),
-        labelLarge: GoogleFonts.poppins(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: AppColors.white,
-        ),
+        displayLarge: type(34, FontWeight.w800, text, height: 1.2),
+        displayMedium: type(30, FontWeight.w700, text, height: 1.2),
+        headlineMedium: type(26, FontWeight.w700, text, height: 1.25),
+        headlineSmall: type(24, FontWeight.w700, text, height: 1.25),
+        titleLarge: type(22, FontWeight.w700, text, height: 1.3),
+        titleMedium: type(19, FontWeight.w600, text, height: 1.35),
+        titleSmall: type(17, FontWeight.w600, muted, height: 1.35),
+        bodyLarge: type(18, FontWeight.w400, text, height: 1.5),
+        bodyMedium: type(17, FontWeight.w400, text, height: 1.5),
+        bodySmall: type(16, FontWeight.w400, muted, height: 1.45),
+        labelLarge: type(18, FontWeight.w700, text),
+        labelMedium: type(16, FontWeight.w600, muted),
+        labelSmall: type(15, FontWeight.w600, muted),
       ),
-
-      // Elevated button — rounded, saffron
+      iconTheme: IconThemeData(color: primary, size: 28),
+      appBarTheme: AppBarTheme(
+        backgroundColor: background,
+        foregroundColor: text,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        centerTitle: false,
+        toolbarHeight: 64,
+        iconTheme: IconThemeData(color: text, size: 28),
+        titleTextStyle: type(22, FontWeight.w700, text),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.saffron,
-          foregroundColor: AppColors.white,
+          backgroundColor: primary,
+          foregroundColor: onPrimary,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: GoogleFonts.poppins(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          minimumSize: buttonSize,
+          padding: buttonPadding,
+          shape: shape,
+          textStyle: buttonText,
         ),
       ),
-
-      // Outlined button
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.saffron,
-          side: const BorderSide(color: AppColors.saffron),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-
-      // Filled button — Material 3 style
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.saffron,
-          foregroundColor: AppColors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+          backgroundColor: primary,
+          foregroundColor: onPrimary,
+          minimumSize: buttonSize,
+          padding: buttonPadding,
+          shape: shape,
+          textStyle: buttonText,
         ),
       ),
-
-      // Text button
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primary,
+          backgroundColor: surface,
+          side: BorderSide(color: primary, width: 1.5),
+          minimumSize: buttonSize,
+          padding: buttonPadding,
+          shape: shape,
+          textStyle: buttonText,
+        ),
+      ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.saffron,
-          textStyle: GoogleFonts.poppins(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+          foregroundColor: primary,
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          textStyle: type(17, FontWeight.w700, primary),
         ),
       ),
-
-      // Input fields — clean with rounded borders
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(minimumSize: const Size(48, 48), iconSize: 28),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.lightGrey),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.lightGrey),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.saffron, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-        hintStyle: GoogleFonts.poppins(
-          color: AppColors.lightText,
-          fontSize: 14,
-        ),
+        fillColor: surface,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+        border: field(outline, 1.5),
+        enabledBorder: field(outline, 1.5),
+        focusedBorder: field(primary, 2.5),
+        errorBorder: field(scheme.error, 1.5),
+        focusedErrorBorder: field(scheme.error, 2.5),
+        labelStyle: type(17, FontWeight.w500, muted),
+        floatingLabelStyle: type(17, FontWeight.w700, primary),
+        hintStyle: type(17, FontWeight.w400, muted),
+        helperStyle: type(15, FontWeight.w400, muted),
+        errorStyle: type(15, FontWeight.w600, scheme.error),
       ),
-
-      // Cards — subtle shadow, rounded
       cardTheme: CardThemeData(
-        color: AppColors.white,
-        elevation: 1,
+        color: surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: outline)),
+        margin: const EdgeInsets.symmetric(vertical: 8),
       ),
-
-      // Bottom navigation
+      listTileTheme: ListTileThemeData(
+        iconColor: primary,
+        minVerticalPadding: 12,
+        titleTextStyle: type(18, FontWeight.w600, text, height: 1.35),
+        subtitleTextStyle: type(16, FontWeight.w400, muted, height: 1.4),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titleTextStyle: type(22, FontWeight.w700, text, height: 1.3),
+        contentTextStyle: type(18, FontWeight.w400, text, height: 1.5),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.ink,
+        contentTextStyle: type(17, FontWeight.w500, AppColors.white, height: 1.4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+          color: accent, linearTrackColor: outline, linearMinHeight: 6),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: AppColors.white,
-        selectedItemColor: AppColors.saffron,
-        unselectedItemColor: AppColors.lightText,
+        backgroundColor: surface,
+        selectedItemColor: primary,
+        unselectedItemColor: muted,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
-        selectedLabelStyle: GoogleFonts.poppins(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: GoogleFonts.poppins(
-          fontSize: 11,
-          fontWeight: FontWeight.w400,
-        ),
+        selectedLabelStyle: type(14, FontWeight.w700, primary),
+        unselectedLabelStyle: type(14, FontWeight.w500, muted),
       ),
-
-      // Divider
-      dividerTheme: DividerThemeData(
-        color: AppColors.lightGrey,
-        thickness: 1,
-        space: 1,
-      ),
+      dividerTheme: DividerThemeData(color: outline, thickness: 1, space: 24),
     );
   }
-
-  static ThemeData get darkTheme {
-    const darkBg = Color(0xFF1A1208);
-    const darkSurface = Color(0xFF2A1F10);
-    const darkCard = Color(0xFF2E2214);
-    const darkBorder = Color(0xFF3D2E18);
-    const lightText = Color(0xFFE8D5B0);
-    const mutedText = Color(0xFF9A8A6A);
-
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        brightness: Brightness.dark,
-        seedColor: AppColors.saffron,
-        primary: AppColors.saffron,
-        secondary: AppColors.deepOrange,
-        surface: darkSurface,
-        onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onSurface: lightText,
-      ),
-      scaffoldBackgroundColor: darkBg,
-      appBarTheme: AppBarTheme(
-        backgroundColor: darkSurface,
-        foregroundColor: lightText,
-        elevation: 0,
-        centerTitle: true,
-        titleTextStyle: GoogleFonts.poppins(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: lightText,
-        ),
-      ),
-      textTheme: TextTheme(
-        displayLarge: GoogleFonts.poppins(fontSize: 28, fontWeight: FontWeight.bold, color: lightText),
-        displayMedium: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.w600, color: lightText),
-        headlineMedium: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w600, color: lightText),
-        titleLarge: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500, color: lightText),
-        titleMedium: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w500, color: lightText),
-        titleSmall: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500, color: mutedText),
-        bodyLarge: GoogleFonts.notoSerif(fontSize: 16, height: 1.6, color: lightText),
-        bodyMedium: GoogleFonts.poppins(fontSize: 14, color: mutedText),
-        labelLarge: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.saffron,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.saffron,
-          side: const BorderSide(color: AppColors.saffron),
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.saffron,
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: darkCard,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: darkBorder)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: darkBorder)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.saffron, width: 2)),
-        hintStyle: GoogleFonts.poppins(color: mutedText, fontSize: 14),
-      ),
-      cardTheme: CardThemeData(
-        color: darkCard,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      dividerTheme: const DividerThemeData(color: darkBorder, thickness: 1, space: 1),
-      extensions: const [_DarkColors(card: darkCard, border: darkBorder, mutedText: mutedText, primaryText: lightText)],
-    );
-  }
-}
-
-/// ThemeExtension so widgets can pull dark-specific colors without hardcoding.
-class _DarkColors extends ThemeExtension<_DarkColors> {
-  final Color card;
-  final Color border;
-  final Color mutedText;
-  final Color primaryText;
-
-  const _DarkColors({required this.card, required this.border, required this.mutedText, required this.primaryText});
-
-  @override
-  ThemeExtension<_DarkColors> copyWith({Color? card, Color? border, Color? mutedText, Color? primaryText}) =>
-      _DarkColors(card: card ?? this.card, border: border ?? this.border, mutedText: mutedText ?? this.mutedText, primaryText: primaryText ?? this.primaryText);
-
-  @override
-  ThemeExtension<_DarkColors> lerp(ThemeExtension<_DarkColors>? other, double t) => this;
 }

@@ -8,13 +8,35 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/events_provider.dart';
 import '../data/festival_model.dart';
+import '../../firebase_feeds/data/firebase_feeds_gateway.dart';
+import '../../firebase_feeds/data/firebase_feed_models.dart';
+import '../../../shared/widgets/baba_image.dart';
 
 class EventsScreen extends ConsumerWidget {
-  const EventsScreen({super.key});
+  final bool firebase;
+  const EventsScreen({super.key, this.firebase = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final festivalsAsync = ref.watch(festivalsProvider);
+    final feedAsync = firebase ? ref.watch(firebaseFestivalFeedProvider) : null;
+    final festivalsAsync = firebase
+        ? feedAsync!.whenData((feed) => feed.events.map((event) => Festival(
+            id: event.id, title: event.title, dateLabel: event.dateLabel,
+            eventDate: event.eventDate, description: event.description,
+            sourceUrl: feed.metadata.sourceUrl, scrapedAt: feed.metadata.fetchedAt)).toList())
+        : ref.watch(festivalsProvider);
+    Future<void> reload() async {
+      if (firebase) {
+        ref.invalidate(firebaseFestivalFeedProvider);
+        await ref.read(firebaseFestivalFeedProvider.future);
+      } else {
+        ref.invalidate(festivalsProvider);
+        await ref.read(festivalsProvider.future);
+      }
+    }
+    Future<void> retry() async {
+      try { await reload(); } catch (_) {}
+    }
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -30,8 +52,11 @@ class EventsScreen extends ConsumerWidget {
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         centerTitle: false,
+        actions: [IconButton(onPressed: festivalsAsync.isLoading ? null : retry,
+          icon: const Icon(Icons.refresh), tooltip: 'Retry events')],
       ),
       body: festivalsAsync.when(
+        skipLoadingOnRefresh: false,
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.saffron),
         ),
@@ -54,13 +79,13 @@ class EventsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Please check your connection and try again.',
+                  firebase ? 'Check the local Functions connection and try again.' : 'Please check your connection and try again.',
                   style: TextStyle(fontSize: 13, color: AppColors.lightText),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
                 FilledButton.icon(
-                  onPressed: () => ref.invalidate(festivalsProvider),
+                  onPressed: retry,
                   icon: const Icon(Icons.refresh, size: 18),
                   label: const Text('Retry'),
                   style: FilledButton.styleFrom(
@@ -79,8 +104,8 @@ class EventsScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.celebration_outlined,
-                        size: 48, color: AppColors.saffron.withOpacity(0.5)),
+                    const BabaImage(width: 76, height: 76, borderRadius: 38,
+                      alignment: Alignment(0, -0.78)),
                     const SizedBox(height: 16),
                     Text(
                       'No upcoming events',
@@ -104,13 +129,14 @@ class EventsScreen extends ConsumerWidget {
 
           return RefreshIndicator(
             color: AppColors.saffron,
-            onRefresh: () async => ref.invalidate(festivalsProvider),
+            onRefresh: retry,
             child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
               itemCount: festivals.length + 1,
               itemBuilder: (context, index) {
-                if (index == 0) return _buildHeader(context);
-                return _FestivalCard(festival: festivals[index - 1]);
+                if (index == 0) return _buildHeader(context, feedAsync?.valueOrNull);
+                return _FestivalCard(festival: festivals[index - 1], dateOnly: firebase);
               },
             ),
           );
@@ -119,7 +145,7 @@ class EventsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, FirebaseFestivalFeed? feed) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Container(
@@ -138,15 +164,8 @@ class EventsScreen extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.saffron.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.celebration_rounded,
-                  color: AppColors.saffron, size: 28),
-            ),
+            const BabaImage(width: 52, height: 52, borderRadius: 26,
+              alignment: Alignment(0, -0.78)),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -162,7 +181,10 @@ class EventsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'From sai.org.in · Updated daily',
+                    feed == null ? 'From sai.org.in · Updated daily' :
+                      'From sai.org.in\nFetched ${DateFormat('MMM d, yyyy HH:mm').format(feed.metadata.fetchedAt)} UTC\n'
+                      '${feed.metadata.stale ? 'Cached data (stale)' : 'Fresh until ${DateFormat('MMM d, yyyy HH:mm').format(feed.metadata.freshUntil)} UTC'}'
+                      '${feed.truncated ? '\nSome source entries were truncated.' : ''}',
                     style: TextStyle(
                       fontSize: 13,
                       color: AppColors.lightText,
@@ -180,13 +202,16 @@ class EventsScreen extends ConsumerWidget {
 
 class _FestivalCard extends StatelessWidget {
   final Festival festival;
+  final bool dateOnly;
 
-  const _FestivalCard({required this.festival});
+  const _FestivalCard({required this.festival, this.dateOnly = false});
 
   @override
   Widget build(BuildContext context) {
+    final localNow = DateTime.now();
+    final today = dateOnly ? DateTime.utc(localNow.year, localNow.month, localNow.day) : localNow;
     final isUpcoming = festival.eventDate != null &&
-        festival.eventDate!.isAfter(DateTime.now());
+      (dateOnly ? !festival.eventDate!.isBefore(today) : festival.eventDate!.isAfter(today));
 
     String formattedDate = festival.dateLabel;
     if (festival.eventDate != null) {
@@ -196,7 +221,7 @@ class _FestivalCard extends StatelessWidget {
     // Days until event
     String? daysUntil;
     if (festival.eventDate != null) {
-      final diff = festival.eventDate!.difference(DateTime.now()).inDays;
+      final diff = festival.eventDate!.difference(today).inDays;
       if (diff == 0) {
         daysUntil = 'Today';
       } else if (diff == 1) {
@@ -274,8 +299,10 @@ class _FestivalCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (daysUntil != null)
-                Container(
+            ],
+          ),
+          if (daysUntil != null)
+            Padding(padding: const EdgeInsets.only(top: 8), child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -290,9 +317,7 @@ class _FestivalCard extends StatelessWidget {
                       color: AppColors.saffron,
                     ),
                   ),
-                ),
-            ],
-          ),
+                )),
           if (festival.description != null &&
               festival.description!.isNotEmpty) ...[
             const SizedBox(height: 10),

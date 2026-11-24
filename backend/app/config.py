@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     # CORS
-    cors_origins: list[str] = ["*"]
+    cors_origins: list[str] = ["http://localhost:3000"]
 
     # Google OAuth
     google_client_id: str = ""

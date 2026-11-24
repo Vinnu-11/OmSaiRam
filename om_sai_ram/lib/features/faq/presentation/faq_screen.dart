@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/l10n/s.dart';
 import '../../../core/providers/language_provider.dart';
+import '../../../shared/widgets/baba_image.dart';
 
 /// FAQ screen with expandable question/answer tiles.
 ///
@@ -17,11 +18,13 @@ import '../../../core/providers/language_provider.dart';
 /// - How chapter assignments work
 /// - Reading progress tracking
 class FaqScreen extends ConsumerWidget {
-  const FaqScreen({super.key});
+  final bool firebase;
+  const FaqScreen({super.key, this.firebase = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tr = S(ref.watch(languageProvider).appLanguage.code);
+    final items = firebase ? _firebaseFaqItems : _faqItems;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -33,45 +36,25 @@ class FaqScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         children: [
-          // Header section
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.saffron.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.help_outline_rounded,
-                    size: 36,
-                    color: AppColors.saffron,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'How can we help?',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Find answers to common questions below',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.lightText,
-                      ),
-                ),
-              ],
-            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(children: [
+              const BabaImage(width: 48, height: 48, borderRadius: 24,
+                alignment: Alignment(0, -0.78)),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('How can we help?', style: Theme.of(context).textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+                Text('Find answers to common questions below',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.lightText)),
+              ])),
+            ]),
           ),
 
           const SizedBox(height: 8),
 
           // FAQ items
-          ..._faqItems.asMap().entries.map((entry) => _FaqTile(
+          ...items.asMap().entries.map((entry) => _FaqTile(
                 question: entry.value['question']!,
                 answer: entry.value['answer']!,
                 index: entry.key,
@@ -124,14 +107,14 @@ class _FaqTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.lightGrey),
-      ),
-      child: Theme(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.lightGrey)),
+        child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -173,9 +156,41 @@ class _FaqTile extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
+
+const List<Map<String, String>> _firebaseFaqItems = [
+  {
+    'question': 'What is Shri Sai Satcharita?',
+    'answer': 'Shri Sai Satcharita is the devotional text by Hemadpant about the life and teachings of Shirdi Sai Baba. Marathi originals contain 53 chapters; some translations merge chapter ranges.',
+  },
+  {
+    'question': 'Can I read without an account?',
+    'answer': 'Yes. Bundled reading, audio, the daily programme and these questions are public. Group assignments and account settings require a ready signed-in profile.',
+  },
+  {
+    'question': 'How do I create or join a group?',
+    'answer': 'Sign in, open My groups and create a chapter-wise or Weekly Saptah group, or join with the long invitation token shared by an admin. Tokens expire and can be revoked. Weekly Saptah is a label: both kinds are scheduled weekly.',
+  },
+  {
+    'question': 'How is assignment completion recorded?',
+    'answer': 'Open your reading task and explicitly mark the assignment completed. Completion requires server confirmation. Opening text, scrolling or playing audio does not mark an assignment completed.',
+  },
+  {
+    'question': 'Are bookmarks and reading positions private to my account?',
+    'answer': 'No. Bookmarks, the last saved reading position, language and font settings are stored on this installation and shared across accounts. They are not cloud-synced. Standalone reading does not change group progress.',
+  },
+  {
+    'question': 'Which features need an internet connection?',
+    'answer': 'Group operations require server access. Bundled text works offline after startup. Audio uses external hosting; native playback can reuse downloaded cache. Saving reminder preferences does not schedule or deliver notifications.',
+  },
+  {
+    'question': 'Can I leave and rejoin a group?',
+    'answer': 'Nonadmin members can leave, but rejoining after departure is currently blocked. Group and account deletion are not available; leaving retains historical assignments, messages and highlights.',
+  },
+];
 
 /// Static FAQ content.
 const List<Map<String, String>> _faqItems = [

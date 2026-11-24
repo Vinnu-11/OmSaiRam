@@ -64,12 +64,19 @@ def test_manual_assignment_normalizes_and_rejects_combined_duplicate(reading_gro
 
 def test_suggestions_count_combined_units(reading_group):
     db, user, group = reading_group
+    member = User(name="Member", email="suggestion-member@test.com")
+    db.add(member)
+    db.flush()
+    db.add(GroupMember(group_id=group.id, user_id=member.id, role="member"))
+    db.commit()
     result = suggest_schedule(SuggestScheduleRequest(group_id=group.id,
                              hints=[{"position": 0, "chapter_start": 16},
                                     {"position": 1, "chapter_start": 18}],
                              weeks_ahead=2), user, db)
     assert result.detected_step == 1
-    assert [s.chapter_numbers for s in result.suggestions] == [[16], [18], [20]]
+    assert [s.chapter_numbers for s in result.suggestions] == [
+        [16], [18], [20], [21], [22], [23],
+    ]
 
 
 def test_multi_slot_assignment_and_truncation(reading_group):

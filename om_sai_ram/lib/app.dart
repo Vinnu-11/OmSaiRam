@@ -9,6 +9,10 @@ import 'core/constants/app_strings.dart';
 import 'core/services/router_service.dart';
 import 'core/providers/reader_settings_provider.dart';
 import 'core/providers/language_provider.dart';
+import 'core/providers/text_scale_provider.dart';
+import 'core/config/backend_config.dart';
+import 'features/firebase_reminders/providers/firebase_device_reminders_provider.dart';
+import 'features/firebase_reminders/presentation/firebase_device_reminder_controls.dart';
 
 class OmSaiRamApp extends ConsumerWidget {
   const OmSaiRamApp({super.key});
@@ -19,13 +23,23 @@ class OmSaiRamApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final langCode = ref.watch(languageProvider).appLanguage.code;
 
-    return MaterialApp.router(
+    final application = MaterialApp.router(
       title: AppStrings.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
       routerConfig: router,
+      // The reader's own text-size choice multiplies the phone's setting,
+      // capped so layouts stay usable.
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+        final scale = (media.textScaler.scale(1) * ref.watch(textScaleProvider))
+            .clamp(1.0, 2.0);
+        return MediaQuery(
+            data: media.copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!);
+      },
       locale: Locale(langCode),
       supportedLocales: AppLanguage.available.map((l) => Locale(l.code)).toList(),
       localizationsDelegates: const [
@@ -34,5 +48,7 @@ class OmSaiRamApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
     );
+    return ref.read(backendConfigProvider).mode == BackendMode.firebase && firebaseNativeReminderPlatform
+      ? FirebaseDeviceReminderHost(child: application) : application;
   }
 }

@@ -57,16 +57,20 @@ enum AppLanguage {
 class LanguageState {
   final AppLanguage appLanguage;
   final AppLanguage readerLanguage;
+  /// False until the reader has picked a language on this installation.
+  final bool chosen;
 
   const LanguageState({
     this.appLanguage = AppLanguage.english,
     this.readerLanguage = AppLanguage.english,
+    this.chosen = true,
   });
 
   LanguageState copyWith({AppLanguage? appLanguage, AppLanguage? readerLanguage}) {
     return LanguageState(
       appLanguage: appLanguage ?? this.appLanguage,
       readerLanguage: readerLanguage ?? this.readerLanguage,
+      chosen: chosen,
     );
   }
 }
@@ -83,6 +87,7 @@ class LanguageNotifier extends StateNotifier<LanguageState> {
     state = LanguageState(
       appLanguage: AppLanguage.fromCode(appCode),
       readerLanguage: AppLanguage.fromCode(readerCode),
+      chosen: prefs.containsKey(_kAppLangKey),
     );
   }
 

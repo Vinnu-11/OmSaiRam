@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/language_provider.dart';
 import '../../../core/l10n/s.dart';
@@ -40,6 +41,8 @@ class _SatcharitaAudioScreenState extends ConsumerState<SatcharitaAudioScreen>
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
+        leading: IconButton(tooltip: 'Back to audio',
+          onPressed: () => context.go('/audio'), icon: const Icon(Icons.arrow_back)),
         backgroundColor: AppColors.cream,
         elevation: 0,
         title: Text(
@@ -75,7 +78,7 @@ class _SatcharitaAudioScreenState extends ConsumerState<SatcharitaAudioScreen>
       ),
       // Mini player docked at the bottom when audio is active
       bottomNavigationBar: audioState.isActive || audioState.status == ChapterAudioStatus.downloading
-          ? _SatcharitaMiniPlayer(audioState: audioState)
+          ? ChapterAudioPlayer(audioState: audioState)
           : null,
       body: TabBarView(
         controller: _tabController,
@@ -254,9 +257,46 @@ class _ChapterTile extends ConsumerWidget {
 // Mini player docked at the bottom of the Satcharitra Audio screen
 // ---------------------------------------------------------------------------
 
-class _SatcharitaMiniPlayer extends ConsumerWidget {
+class ReaderAudioControls extends ConsumerWidget {
+  final List<AudioTrack> tracks;
+  const ReaderAudioControls({super.key, required this.tracks});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final audio = ref.watch(chapterAudioProvider);
+    final loading = audio.status == ChapterAudioStatus.downloading ||
+        audio.status == ChapterAudioStatus.buffering;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (tracks.isEmpty) const Text('No chapter audio available for this text language.'),
+      for (final track in tracks)
+        ListTile(contentPadding: EdgeInsets.zero,
+          title: Text(track.title),
+          trailing: IconButton(key: ValueKey('reader-audio-${track.fileName}'),
+            tooltip: audio.track?.fileName == track.fileName && audio.status == ChapterAudioStatus.playing
+                ? 'Pause chapter audio' : 'Play chapter audio',
+            onPressed: loading ? null : () async {
+              try {
+                await ref.read(chapterAudioProvider.notifier).toggleAudio(track);
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Audio could not be played. Try again.')));
+                }
+              }
+            },
+            icon: Icon(audio.track?.fileName == track.fileName && audio.status == ChapterAudioStatus.playing
+                ? Icons.pause : Icons.play_arrow))),
+      if (audio.status == ChapterAudioStatus.error)
+        const Text('Audio could not be played. Retry playback when connected.'),
+      if (audio.track != null && audio.status != ChapterAudioStatus.idle)
+        ChapterAudioPlayer(audioState: audio),
+    ]);
+  }
+}
+
+class ChapterAudioPlayer extends ConsumerWidget {
   final ChapterAudioState audioState;
-  const _SatcharitaMiniPlayer({required this.audioState});
+  const ChapterAudioPlayer({super.key, required this.audioState});
 
   String _fmt(Duration d) {
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -358,6 +398,7 @@ class _SatcharitaMiniPlayer extends ConsumerWidget {
                 )
               else
                 IconButton(
+                  tooltip: isPlaying ? 'Pause audio' : 'Play audio',
                   icon: Icon(
                     isPlaying
                         ? Icons.pause_circle_filled_rounded
@@ -369,6 +410,7 @@ class _SatcharitaMiniPlayer extends ConsumerWidget {
                   onPressed: () => notifier.toggleAudio(track),
                 ),
               IconButton(
+                tooltip: 'Stop audio',
                 icon: const Icon(Icons.close_rounded,
                     size: 20, color: AppColors.mediumText),
                 padding: EdgeInsets.zero,

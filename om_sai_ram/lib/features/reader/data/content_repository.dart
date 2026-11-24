@@ -14,6 +14,11 @@ final contentRepositoryProvider = Provider<ContentRepository>((ref) {
   return ContentRepository(apiClient: ref.read(apiClientProvider));
 });
 
+/// Local content only: constructing this provider never constructs an API client.
+final bundledContentRepositoryProvider =
+    Provider.autoDispose<ContentRepository>(
+        (ref) => ContentRepository.bundledOnly());
+
 /// Manages loading and caching of Satcharita chapter content.
 ///
 /// Strategy:
@@ -24,24 +29,27 @@ final contentRepositoryProvider = Provider<ContentRepository>((ref) {
 /// This ensures the app works offline with bundled content
 /// while supporting content updates without app store releases.
 class ContentRepository {
-  final ApiClient _apiClient;
+  final ApiClient? _apiClient;
   // Per-language cache so switching languages doesn't invalidate the other.
   final Map<String, List<Chapter>> _cache = {};
 
   ContentRepository({required ApiClient apiClient}) : _apiClient = apiClient;
+
+  ContentRepository.bundledOnly() : _apiClient = null;
 
   /// Loads all chapters for the given language, using per-language cache.
   Future<List<Chapter>> getChapters({String language = 'en'}) async {
     if (_cache.containsKey(language)) return _cache[language]!;
 
     _cache[language] = await _loadBundledChapters(language);
-    _checkForUpdates(language);
+    if (_apiClient != null) _checkForUpdates(language);
     return _cache[language]!;
   }
 
   /// Returns the entry covering Marathi adhyaya [chapterNumber] (entries may
   /// span a range, e.g. "16-17", in translations that merge adhyayas).
-  Future<Chapter?> getChapter(int chapterNumber, {String language = 'en'}) async {
+  Future<Chapter?> getChapter(int chapterNumber,
+      {String language = 'en'}) async {
     final chapters = await getChapters(language: language);
     for (final c in chapters) {
       if (c.covers(chapterNumber)) return c;
@@ -65,25 +73,37 @@ class ContentRepository {
         parts.add(chapter);
       }
     }
+    // Preserve the original entry identity for an already-merged translation.
+    // Its number/range and language already describe the whole displayed text.
     if (parts.length == 1) return parts.first;
     final first = parts.first;
+    final text = StringBuffer();
+    final segments = <ChapterSourceSegment>[];
+    for (final part in parts) {
+      if (text.isNotEmpty) text.write('\n\n');
+      final offset = text.length;
+      text.write('${part.heading ?? 'Chapter ${part.number}'}\n\n');
+      text.write(part.content);
+      segments.add(ChapterSourceSegment(offset, text.length, part.number,
+          part.lastNumber, part.language));
+    }
     return Chapter(
       id: first.id,
       number: start,
       chapterLabel: ChapterUnits.label(start),
       title: first.title,
-      content: parts.map((part) =>
-          '${part.heading ?? 'Chapter ${part.number}'}\n\n${part.content}').join('\n\n'),
+      content: text.toString(),
       language: first.language,
       version: first.version,
+      sourceSegments: List.unmodifiable(segments),
     );
   }
 
   /// Loads chapters from the bundled JSON asset file.
   Future<List<Chapter>> _loadBundledChapters(String language) async {
     try {
-      final jsonString =
-          await rootBundle.loadString('assets/content/satcharita_$language.json');
+      final jsonString = await rootBundle
+          .loadString('assets/content/satcharita_$language.json');
       final List<dynamic> jsonList = json.decode(jsonString);
       return jsonList.map((j) => Chapter.fromJson(j)).toList();
     } catch (e) {
@@ -94,8 +114,10 @@ class ContentRepository {
   /// Checks the server for a newer content version.
   /// If available, fetches and updates the cache.
   Future<void> _checkForUpdates(String language) async {
+    final apiClient = _apiClient;
+    if (apiClient == null) return;
     try {
-      final response = await _apiClient.get(
+      final response = await apiClient.get(
         AppConstants.contentVersionsEndpoint,
         queryParameters: {'language': language},
       );
@@ -106,7 +128,7 @@ class ContentRepository {
           cached != null && cached.isNotEmpty ? cached.first.version : 0;
 
       if (serverVersion > localVersion) {
-        final chaptersResponse = await _apiClient.get(
+        final chaptersResponse = await apiClient.get(
           '${AppConstants.chaptersEndpoint}/$language',
         );
         // Backend returns a bare JSON list of chapters.

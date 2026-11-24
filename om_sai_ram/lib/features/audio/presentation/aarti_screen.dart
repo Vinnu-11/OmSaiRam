@@ -3,42 +3,65 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/baba_image.dart';
 import '../data/audio_data.dart';
 import '../providers/chapter_audio_provider.dart';
+import 'satcharitra_audio_screen.dart';
 
-class AartiScreen extends StatefulWidget {
+class AartiScreen extends ConsumerStatefulWidget {
   const AartiScreen({super.key});
 
   @override
-  State<AartiScreen> createState() => _AartiScreenState();
+  ConsumerState<AartiScreen> createState() => _AartiScreenState();
 }
 
-class _AartiScreenState extends State<AartiScreen> {
+class _AartiScreenState extends ConsumerState<AartiScreen> {
   int _expanded = -1;
 
   @override
   Widget build(BuildContext context) {
+    final audio = ref.watch(chapterAudioProvider);
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
+        leading: IconButton(
+            tooltip: 'Back to audio',
+            onPressed: () => context.go('/audio'),
+            icon: const Icon(Icons.arrow_back)),
         backgroundColor: AppColors.cream,
         elevation: 0,
-        title: const Text('Aarti', style: TextStyle(fontWeight: FontWeight.w700)),
+        title:
+            const Text('Aarti', style: TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: false,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-        itemCount: kAartis.length,
-        itemBuilder: (context, i) {
-          final group = kAartis[i];
-          final isOpen = _expanded == i;
-          return _AartiSection(
-            group: group,
-            isOpen: isOpen,
-            onTap: () => setState(() => _expanded = isOpen ? -1 : i),
-          );
-        },
+      bottomNavigationBar:
+          audio.track != null && audio.status != ChapterAudioStatus.idle
+              ? ChapterAudioPlayer(audioState: audio)
+              : null,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+            children: [
+              const BabaImage(
+                imageUrl: babaReadingPhotoUrl,
+                height: 190,
+                alignment: Alignment.center,
+              ),
+              const SizedBox(height: 16),
+              for (final (i, group) in kAartis.indexed)
+                _AartiSection(
+                  group: group,
+                  isOpen: _expanded == i,
+                  onTap: () =>
+                      setState(() => _expanded = _expanded == i ? -1 : i),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -63,7 +86,8 @@ class _AartiSection extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isOpen ? AppColors.saffron.withOpacity(0.4) : AppColors.lightGrey,
+          color:
+              isOpen ? AppColors.saffron.withOpacity(0.4) : AppColors.lightGrey,
           width: isOpen ? 1.5 : 1,
         ),
         boxShadow: [
@@ -91,7 +115,8 @@ class _AartiSection extends StatelessWidget {
                       color: AppColors.saffron.withOpacity(0.10),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.music_note_rounded, color: AppColors.saffron, size: 22),
+                    child: Icon(Icons.music_note_rounded,
+                        color: AppColors.saffron, size: 22),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -118,7 +143,9 @@ class _AartiSection extends StatelessWidget {
                     ),
                   ),
                   Icon(
-                    isOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    isOpen
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
                     color: AppColors.mediumText,
                     size: 26,
                   ),
@@ -191,7 +218,8 @@ class _TrackTile extends ConsumerWidget {
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
-                        value: isDownloading ? audioState.downloadProgress : null,
+                        value:
+                            isDownloading ? audioState.downloadProgress : null,
                         strokeWidth: 2.5,
                         color: Colors.white,
                       ),

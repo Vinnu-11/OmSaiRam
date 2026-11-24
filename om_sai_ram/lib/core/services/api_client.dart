@@ -5,10 +5,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
+import '../config/backend_config.dart';
 
 /// Provider for the API client singleton.
 final apiClientProvider = Provider<ApiClient>((ref) {
-  return ApiClient();
+  return ApiClient(config: ref.watch(backendConfigProvider));
 });
 
 /// HTTP client wrapper around Dio.
@@ -21,27 +22,40 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 class ApiClient {
   late final Dio _dio;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final BackendConfig _config;
 
   /// Called when the refresh token is missing or rejected (user must log in again).
   void Function()? onSessionExpired;
 
-  ApiClient() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: AppConstants.apiBaseUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 10),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-      ),
-    );
+  ApiClient({BackendConfig? config, Dio? dio})
+      : _config = config ?? BackendConfig.fromEnvironment() {
+    _dio = dio ??
+        Dio(
+          BaseOptions(
+            baseUrl: AppConstants.apiBaseUrl,
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 10),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          ),
+        );
 
     // Add auth interceptor to inject JWT token into requests
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // Reject every legacy HTTP request before touching storage or network.
+          if (_config.mode == BackendMode.firebase) {
+            handler.reject(DioException(
+              requestOptions: options,
+              type: DioExceptionType.cancel,
+              error: StateError(
+                  'Legacy FastAPI HTTP is disabled in Firebase mode.'),
+            ));
+            return;
+          }
           final token = await _storage.read(key: AppConstants.accessTokenKey);
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
@@ -49,6 +63,10 @@ class ApiClient {
           handler.next(options);
         },
         onError: (error, handler) async {
+          if (_config.mode == BackendMode.firebase) {
+            handler.next(error);
+            return;
+          }
           // Skip token refresh for login/OTP endpoints — let the caller handle the error.
           // /auth/me is a normal authenticated call and must refresh like any other.
           final path = error.requestOptions.path;
@@ -72,6 +90,7 @@ class ApiClient {
   /// Attempts to refresh the access token using the stored refresh token.
   /// Returns true if refresh was successful.
   Future<bool> _refreshToken() async {
+    if (_config.mode != BackendMode.fastapi) return false;
     try {
       final refreshToken =
           await _storage.read(key: AppConstants.refreshTokenKey);

@@ -3,35 +3,49 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_shell.dart';
+import '../../firebase_feeds/data/firebase_feeds_gateway.dart';
 
 // Conditional import for web platform iframe support
 import 'live_darshan_web_stub.dart'
     if (dart.library.html) 'live_darshan_web.dart' as web_impl;
 
-class LiveDarshanScreen extends StatefulWidget {
-  const LiveDarshanScreen({super.key});
+class LiveDarshanScreen extends ConsumerStatefulWidget {
+  final bool firebase;
+  const LiveDarshanScreen({super.key, this.firebase = false});
 
   @override
-  State<LiveDarshanScreen> createState() => _LiveDarshanScreenState();
+  ConsumerState<LiveDarshanScreen> createState() => _LiveDarshanScreenState();
 }
 
-class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
+class _LiveDarshanScreenState extends ConsumerState<LiveDarshanScreen> {
   WebViewController? _controller;
   bool _loading = true;
   bool _hasError = false;
   /// True when the platform doesn't support WebView (e.g. Linux desktop).
   bool _unsupported = false;
+  int _loadEpoch = 0;
+  int _autoReloads = 0;
 
   static const String _liveUrl =
       'https://sai.org.in/node/504?width=960&height=540&iframe=true';
-  // On web, use the local HLS player page that fetches the stream URL via the API
-  static final String _webPlayerUrl =
-      'live_player.html?api=${Uri.encodeComponent(AppConstants.apiBaseUrl)}';
+  // On web, the local HLS player page reads the stream URL itself.
+  String get _webPlayerUrl {
+    if (!widget.firebase) {
+      return Uri(path: 'live_player.html', queryParameters: {'api': AppConstants.apiBaseUrl}).toString();
+    }
+    final gateway = ref.read(firebaseFeedsGatewayProvider);
+    final query = gateway.direct ? {'direct': '1'} : {'feed': gateway.endpoint('liveDarshan').toString()};
+    return Uri(path: 'live_player.html', queryParameters: query).toString();
+  }
 
   @override
   void initState() {
@@ -41,7 +55,64 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
       _loading = false;
       return;
     }
-    _initWebView();
+    if (widget.firebase) {
+      _loadFirebase();
+    } else {
+      _initWebView();
+    }
+  }
+
+  Future<void> _loadFirebase() async {
+    final epoch = ++_loadEpoch;
+    if (WebViewPlatform.instance == null) {
+      setState(() { _unsupported = true; _loading = false; });
+      return;
+    }
+    _stopFirebasePlayer();
+    setState(() { _controller = null; _loading = true; _hasError = false; });
+    try {
+      final feed = await ref.read(firebaseFeedsGatewayProvider).liveDarshan();
+      final template = await rootBundle.loadString('web/live_player.html');
+      if (!mounted || epoch != _loadEpoch) return;
+      final data = jsonEncode({'url': feed.url.toString(), 'sourceUrl': feed.metadata.sourceUrl,
+        'fetchedAt': feed.metadata.fetchedAt.toIso8601String(), 'freshUntil': feed.metadata.freshUntil.toIso8601String(), 'stale': false}).replaceAll('<', r'\u003c');
+      final html = template.replaceFirst('<script id="firebase-feed" type="application/json">null</script>',
+        '<script id="firebase-feed" type="application/json">$data</script>');
+      final controller = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..addJavaScriptChannel('FirebaseFeedRetry', onMessageReceived: (message) {
+          if (!mounted || epoch != _loadEpoch) return;
+          // The player asks for a fresh stream URL when playback drops; cap
+          // automatic reloads until it reports playing again.
+          if (message.message == 'playing') { _autoReloads = 0; return; }
+          if (message.message == 'auto' && ++_autoReloads > 3) return;
+          if (message.message != 'auto') _autoReloads = 0;
+          _loadFirebase();
+        })
+        ..setNavigationDelegate(NavigationDelegate(
+          onPageFinished: (_) { if (mounted && epoch == _loadEpoch) setState(() => _loading = false); },
+          onWebResourceError: (error) {
+            if (mounted && epoch == _loadEpoch && error.isForMainFrame != false) setState(() { _hasError = true; _loading = false; });
+          },
+          onNavigationRequest: (request) => request.url == 'about:blank' ? NavigationDecision.navigate : NavigationDecision.prevent,
+        ));
+      await controller.loadHtmlString(html);
+      if (!mounted || epoch != _loadEpoch) return;
+      setState(() => _controller = controller);
+    } catch (_) {
+      if (mounted && epoch == _loadEpoch) setState(() { _hasError = true; _loading = false; });
+    }
+  }
+
+  void _stopFirebasePlayer() {
+    if (widget.firebase) _controller?.runJavaScript('stopStream();').catchError((_) {});
+  }
+
+  @override
+  void dispose() {
+    _loadEpoch++;
+    _stopFirebasePlayer();
+    super.dispose();
   }
 
   void _initWebView() {
@@ -88,6 +159,9 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
   }
 
   void _reload() {
+    _autoReloads = 0;
+    if (kIsWeb) { setState(() => _loadEpoch++); return; }
+    if (widget.firebase) { _loadFirebase(); return; }
     if (_controller == null) return;
     setState(() {
       _loading = true;
@@ -97,7 +171,7 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
   }
 
   Future<void> _openInBrowser() async {
-    final uri = Uri.parse('https://sai.org.in/live-darshan');
+    final uri = Uri.parse('https://sai.org.in/node/504');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -116,14 +190,15 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
         ),
         centerTitle: false,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white),
-          onPressed: () => AppShell.scaffoldKey.currentState?.openDrawer(),
+          icon: Icon(widget.firebase ? Icons.arrow_back : Icons.menu, color: Colors.white),
+          tooltip: widget.firebase ? 'Back' : 'Menu',
+          onPressed: () => widget.firebase ? context.go('/') : AppShell.scaffoldKey.currentState?.openDrawer(),
         ),
         actions: [
           if (!_unsupported)
             IconButton(
               icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-              onPressed: _reload,
+              onPressed: _loading ? null : _reload,
               tooltip: 'Refresh',
             ),
           IconButton(
@@ -137,7 +212,7 @@ class _LiveDarshanScreenState extends State<LiveDarshanScreen> {
         children: [
           // On web platform, use the local HLS player page
           if (kIsWeb)
-            web_impl.buildIframe(_webPlayerUrl),
+            web_impl.buildIframe(_webPlayerUrl, key: ValueKey(_loadEpoch)),
 
           // Live stream webview (only when platform supports it)
           if (!kIsWeb && _controller != null)
@@ -216,7 +291,7 @@ class _FallbackView extends StatelessWidget {
     return Container(
       color: Colors.black,
       child: Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Column(
             mainAxisSize: MainAxisSize.min,

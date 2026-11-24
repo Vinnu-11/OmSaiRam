@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/baba_image.dart';
 
 class DailyProgrammeScreen extends StatelessWidget {
   const DailyProgrammeScreen({super.key});
@@ -25,83 +26,92 @@ class DailyProgrammeScreen extends StatelessWidget {
         ),
         centerTitle: false,
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-        children: [
-          // Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.saffron.withOpacity(0.12),
-                  AppColors.saffron.withOpacity(0.04),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+            children: [
+              const BabaImage(
+                imageUrl: babaAtDwarakamaiPhotoUrl,
+                height: 170,
+                alignment: Alignment.center,
               ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.saffron.withOpacity(0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.temple_hindu_rounded,
-                      color: AppColors.saffron, size: 28),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Shree Saibaba Sansthan',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: AppColors.darkText,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Shirdi, Maharashtra',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.lightText,
-                        ),
-                      ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.saffron.withOpacity(0.12),
+                      AppColors.saffron.withOpacity(0.04),
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-              ],
-            ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.saffron.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.temple_hindu_rounded,
+                          color: AppColors.saffron, size: 28),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Shree Saibaba Sansthan',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              color: AppColors.darkText,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Shirdi, Maharashtra',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.lightText,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              const Text(
+                'Daily Schedule',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.darkText,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Timeline
+              ..._schedule.asMap().entries.map((e) => _TimelineItem(
+                    entry: e.value,
+                    isFirst: e.key == 0,
+                    isLast: e.key == _schedule.length - 1,
+                  )),
+            ],
           ),
-
-          const SizedBox(height: 24),
-
-          const Text(
-            'Today\'s Schedule',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppColors.darkText,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Timeline
-          ..._schedule.asMap().entries.map((e) =>
-              _TimelineItem(
-                entry: e.value,
-                isFirst: e.key == 0,
-                isLast: e.key == _schedule.length - 1,
-              )),
-        ],
+        ),
       ),
     );
   }
@@ -205,117 +215,126 @@ class _TimelineItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = entry.isAarti ? AppColors.saffron : AppColors.mediumText;
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Timeline line + dot
-          SizedBox(
-            width: 40,
-            child: Column(
-              children: [
-                // Top line
-                if (!isFirst)
-                  Container(width: 2, height: 10, color: AppColors.lightGrey),
-                // Dot
-                Container(
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: entry.isAarti ? AppColors.saffron : Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: color,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                // Bottom line
-                if (!isLast)
-                  Expanded(
-                    child: Container(width: 2, color: AppColors.lightGrey),
-                  ),
-              ],
+    return Stack(
+      children: [
+        if (!isFirst)
+          const Positioned(
+            left: 19,
+            top: 0,
+            height: 17,
+            child: ColoredBox(
+                color: AppColors.lightGrey, child: SizedBox(width: 2)),
+          ),
+        if (!isLast)
+          const Positioned(
+            left: 19,
+            top: 17,
+            bottom: 0,
+            child: ColoredBox(
+                color: AppColors.lightGrey, child: SizedBox(width: 2)),
+          ),
+        Positioned(
+          left: 13,
+          top: 10,
+          child: Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: entry.isAarti ? AppColors.saffron : Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2),
             ),
           ),
-
-          const SizedBox(width: 12),
-
-          // Card
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: entry.isAarti
-                      ? AppColors.saffron.withOpacity(0.3)
-                      : AppColors.lightGrey,
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(width: 52),
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: entry.isAarti
+                        ? AppColors.saffron.withOpacity(0.3)
+                        : AppColors.lightGrey,
+                  ),
                 ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        entry.time,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: color,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      if (entry.isAarti) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.saffron.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          entry.time,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: color,
+                            letterSpacing: 0.3,
                           ),
-                          child: const Text(
-                            'Aarti',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.saffron,
+                        ),
+                        if (entry.isAarti) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppColors.saffron.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'Aarti',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.saffron,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    entry.activity,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.darkText,
                     ),
-                  ),
-                  if (entry.detail != null) ...[
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 4),
                     Text(
-                      entry.detail!,
+                      entry.activity,
                       style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.lightText,
-                        height: 1.4,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.darkText,
                       ),
                     ),
+                    if (entry.detail != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        entry.detail!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.lightText,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    if (entry.isAarti) ...[
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        key: ValueKey('daily-aarti-listen-${entry.activity}'),
+                        onPressed: () => context.go('/audio/aarti'),
+                        icon: const Icon(Icons.headphones_rounded),
+                        label: const Text('Listen'),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 }

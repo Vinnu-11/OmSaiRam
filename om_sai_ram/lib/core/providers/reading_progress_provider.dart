@@ -55,8 +55,10 @@ class ReadingProgressState {
 }
 
 class ReadingProgressNotifier extends StateNotifier<ReadingProgressState> {
+  late final Future<void> ready;
+
   ReadingProgressNotifier() : super(const ReadingProgressState()) {
-    _load();
+    ready = _load();
   }
 
   Future<void> _load() async {
@@ -109,14 +111,22 @@ class ReadingProgressNotifier extends StateNotifier<ReadingProgressState> {
   }
 
   Future<void> saveResumePosition(int chapterNumber, double position) async {
+    if (!position.isFinite) {
+      throw ArgumentError('Invalid reading position.');
+    }
+    final savedPosition = position.clamp(0.0, 1.0).toDouble();
+    await ready;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kResumeChapterKey, chapterNumber);
-    await prefs.setDouble(_kResumePositionKey, position);
+    final positionSaved = await prefs.setDouble(_kResumePositionKey, savedPosition);
+    if (!positionSaved) throw StateError('Reading position could not be saved.');
+    final chapterSaved = await prefs.setInt(_kResumeChapterKey, chapterNumber);
+    if (!chapterSaved) throw StateError('Reading chapter could not be saved.');
     state = state.copyWith(
-        resumeChapter: chapterNumber, resumePosition: position);
+      resumeChapter: chapterNumber, resumePosition: savedPosition);
   }
 
   Future<void> toggleBookmark(int chapterNumber) async {
+    await ready;
     final prefs = await SharedPreferences.getInstance();
     final updated = Set<int>.from(state.bookmarks);
     if (updated.contains(chapterNumber)) {
@@ -124,8 +134,9 @@ class ReadingProgressNotifier extends StateNotifier<ReadingProgressState> {
     } else {
       updated.add(chapterNumber);
     }
-    await prefs.setStringList(
+    final saved = await prefs.setStringList(
         _kBookmarksKey, updated.map((e) => e.toString()).toList());
+    if (!saved) throw StateError('Bookmark could not be saved.');
     state = state.copyWith(bookmarks: updated);
   }
 

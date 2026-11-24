@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "run_id": "QA-2026-11-23-02",
+  "executed_at_utc": "2026-11-24T07:49:35Z",
+  "recommendation": "LOCAL_GATES_PASS_RELEASE_VALIDATION_PENDING",
+  "summary": {
+    "automated_suite_checks_passed": 3158,
+    "automated_suite_checks_failed": 0,
+    "catalogue_api_checks": 991,
+    "catalogue_api_passed": 991,
+    "catalogue_api_failed_tags": 0,
+    "catalogue_api_distinct_failures": 0,
+    "catalogue_ids_exercised_by_api_probe": 101,
+    "catalogue_total_ids": 243
+  },
+  "suites": [
+    {
+      "name": "Flutter unit and widget tests",
+      "command": "flutter test --reporter compact",
+      "passed": 2459,
+      "failed": 0,
+      "skipped": 0,
+      "duration_seconds": 77.393,
+      "status": "Pass"
+    },
+    {
+      "name": "Firebase Auth and Firestore emulator/rules tests",
+      "command": "node --test --test-concurrency=1 tests/*.test.mjs",
+      "passed": 382,
+      "failed": 0,
+      "skipped": 0,
+      "duration_seconds": 223.041,
+      "status": "Pass",
+      "note": "The npm wrapper could not start a second emulator hub because the pinned ports were already occupied; the underlying suite ran against the already-active isolated demo emulators."
+    },
+    {
+      "name": "Firebase Functions unit tests",
+      "command": "npm run test:functions",
+      "passed": 75,
+      "failed": 0,
+      "skipped": 0,
+      "duration_seconds": 0.578,
+      "status": "Pass"
+    },
+    {
+      "name": "FastAPI pytest suite",
+      "command": "pytest -q",
+      "passed": 97,
+      "failed": 0,
+      "skipped": 0,
+      "duration_seconds": 38.42,
+      "warnings": 2,
+      "status": "Pass",
+      "note": "Two PydanticDeprecatedSince20 warnings."
+    },
+    {
+      "name": "Bundled content structural checks",
+      "command": "node docs/qa_data_checks.cjs",
+      "passed": 145,
+      "failed": 0,
+      "languages": 18,
+      "chapters": 852,
+      "status": "Pass"
+    },
+    {
+      "name": "Flutter analyzer",
+      "command": "flutter analyze",
+      "errors": 0,
+      "warnings": 0,
+      "infos": 371,
+      "exit_code": 1,
+      "status": "QualityGateFail",
+      "note": "No warning or error diagnostics; the configured analyzer still exits nonzero because 371 info diagnostics remain."
+    },
+    {
+      "name": "FastAPI QA catalogue probes",
+      "command": "python3 qa_catalogue_checks.py --output /tmp/omsairam-qa-api-results-final.json",
+      "checks": 991,
+      "passed": 991,
+      "failed_tags": 0,
+      "distinct_failures": 0,
+      "catalogue_ids_covered": 101,
+      "status": "Pass"
+    }
+  ],
+  "builds": [
+    {
+      "target": "web-debug",
+      "status": "Pass",
+      "duration_seconds": 74,
+      "artifact": "om_sai_ram/build/web",
+      "size": "89M"
+    },
+    {
+      "target": "web-release",
+      "status": "Pass",
+      "duration_seconds": 74,
+      "artifact": "om_sai_ram/build/web",
+      "size": "74M"
+    },
+    {
+      "target": "apk-debug",
+      "status": "Pass",
+      "duration_seconds": 23,
+      "artifact": "om_sai_ram/build/app/outputs/flutter-apk/app-debug.apk",
+      "size": "198M"
+    },
+    {
+      "target": "apk-release",
+      "status": "Pass",
+      "duration_seconds": 77,
+      "artifact": "om_sai_ram/build/app/outputs/flutter-apk/app-release.apk",
+      "size": "76M"
+    },
+    {
+      "target": "web-debug-final-preview",
+      "status": "Pass",
+      "artifact": "om_sai_ram/build/web",
+      "note": "Rebuilt after release validation so localhost:8126 serves emulator-mode QA output."
+    }
+  ],
+  "browser_smoke": {
+    "status": "PassWithinLocalWebScope",
+    "viewport": "390x844",
+    "routes": [
+      "/",
+      "/reader",
+      "/audio",
+      "/live",
+      "/events",
+      "/daily-programme",
+      "/faq",
+      "/jaap"
+    ],
+    "console_errors": 0,
+    "observations": [
+      "Home showed the compact Help question-mark control.",
+      "Home tiles appeared in the requested order: Read Satcharita, My Groups, Live Darshan, Listen, Daily Programme, Upcoming Events, Naam Jaap.",
+      "The debug build displayed the emulator-only safety banner.",
+      "The unconfigured release build showed the expected missing-Firebase-project guidance instead of connecting to an emulator or cloud project."
+    ],
+    "caveat": "Requests aborted while immediately navigating away from Live and Events were browser-navigation cancellations, not console errors or failed assertions."
+  },
+  "findings": [],
+  "resolved_findings": [
+    "Refresh tokens rotate once, replay is rejected, and password changes revoke prior access and refresh tokens.",
+    "Unsafe manual week values return a controlled 400 response.",
+    "Scheduling reports unfilled slots, validates hints, wraps round-robin slots, and saves the reviewed preview.",
+    "Chat cursor pagination is stable for tied timestamps and rejects missing or cross-group cursors.",
+    "Default CORS configuration restricts origins and remains configurable for deployment."
+  ],
+  "blocked_certification": [
+    "Physical Android phone/tablet behavior, permissions, background audio, notification delivery, and accessibility services",
+    "Real Firebase project, production Auth providers, SMS, cloud Functions deployment, and production security configuration",
+    "PostgreSQL migrations, restore, cascade, and concurrent-write guarantees",
+    "Cross-browser web matrix and hosted SPA deep-link refresh",
+    "Human linguistic/OCR/source review for all 18 bundled languages"
+  ]
+}

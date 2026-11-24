@@ -40,7 +40,7 @@ The health endpoint is `http://localhost:8000/health`. A device/emulator must us
 | `JWT_ALGORITHM` | HS256 |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | 30 |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | 7 |
-| `CORS_ORIGINS` | JSON array, default wildcard; production must restrict origins |
+| `CORS_ORIGINS` | JSON array; defaults to `http://localhost:3000`; set exact deployed web origins |
 | `GOOGLE_CLIENT_ID` | Empty by default; setting it alone does not implement provider verification |
 
 Startup refuses the exact default JWT-secret sentinel when DEBUG=false. That guard is not a general secret-strength validator; choose a strong random value yourself. Use TLS, deployment-specific secrets and private database connectivity.
@@ -67,7 +67,7 @@ All entries below use `/api/v1` unless noted. Authorization is enforced by the A
 | POST | `/auth/social` | Public schema; incomplete Google/Apple verification; not production-ready |
 | POST | `/auth/phone/send-otp` | Public rate-limited test OTP creation; no real SMS sender |
 | POST | `/auth/phone/verify-otp` | Public OTP login/new-account flow |
-| POST | `/auth/refresh` | Valid refresh JWT; deleted user rejected |
+| POST | `/auth/refresh` | One-time rotating refresh JWT; replay/deleted/stale-version tokens rejected |
 | GET | `/auth/me` | Authenticated own profile |
 | PATCH | `/auth/me` | Authenticated own profile update |
 | DELETE | `/auth/me` | Own account anonymization; blocked while admin of any group |
@@ -124,7 +124,7 @@ Responses include chapter number, `chapter_label` and `chapter_end_number`. One 
 - Modes: independent, rotating_window, dense_window, synchronized.
 - Weeks ahead:1–12. Assignment calculations use **unit positions**, not raw chapter-number offsets.
 - Cycle wraps after final unit51–53 to1; truncate/manual report unsatisfied slots.
-- Extend-last/round-robin correctness and preview-versus-confirmation for later weeks/custom steps remain release test targets; do not certify from option labels alone.
+- Extend-last reports unavailable slots, round-robin wraps, and suggestion previews use the same formula as confirmation.
 - Suggested slots include original `chapter_numbers` and full `chapter_labels`.
 - Same-member/week existing units are skipped; query-based duplicate prevention is not a concurrency uniqueness guarantee.
 
@@ -132,7 +132,7 @@ Responses include chapter number, `chapter_label` and `chapter_end_number`. One 
 
 - Email/password auth is implemented. Social backend verification is not: Google currently returns501; Apple returns a controlled email-extraction error. A configured client ID alone does not change this.
 - Phone OTP is hashed in the database but logged in plaintext for development delivery. Integrate SMS and remove sensitive production logging before shipping phone auth.
-- Auth throttling is in-memory/process-local, not distributed. JWTs are stateless; password change/logout do not imply global revocation of every existing token.
+- Auth throttling is in-memory/process-local, not distributed. Refresh sessions are persisted and rotated; password changes revoke prior access-token versions and active refresh sessions.
 - Reminder settings live in the database; delivery is scheduled locally by the client, not server push.
 - Chat has no WebSocket delivery contract.
 - Festival refresh is an APScheduler startup job plus daily job; review multi-worker duplicate job behavior.

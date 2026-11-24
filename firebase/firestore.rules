@@ -1,0 +1,697 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function isGroupMember(groupId) {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid));
+    }
+
+    function isGroupAdmin(groupId) {
+      return isGroupMember(groupId)
+        && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Soft, self-reversible deactivation is a marker on the private profile.
+    // A missing profile is an evaluation error, which also denies the write.
+    function accountActive(uid) {
+      return !('deactivatedAt' in get(/databases/$(database)/documents/users/$(uid)).data);
+    }
+
+    function groupWritable(groupId) {
+      return exists(/databases/$(database)/documents/groups/$(groupId))
+        && existsAfter(/databases/$(database)/documents/groups/$(groupId))
+        && get(/databases/$(database)/documents/groups/$(groupId)).data.get('archived', false) == false
+        && getAfter(/databases/$(database)/documents/groups/$(groupId)).data.get('archived', false) == false;
+    }
+
+    // 64-hex bearer tokens (older invites) or 8-character codes people can type:
+    // capital letters and digits without the look-alikes I, O, 0 and 1.
+    function validInviteToken(token) {
+      return token is string && token.matches('^([a-f0-9]{64}|[A-HJ-NP-Z2-9]{8})$');
+    }
+
+    function canAssign(groupId) {
+      return isGroupMember(groupId) && groupWritable(groupId)
+        && get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role
+          in ['admin', 'group_lead'];
+    }
+
+    function groupOwner(groupId) {
+      let group = get(/databases/$(database)/documents/groups/$(groupId)).data;
+      return group.get('ownerUid', group.createdBy);
+    }
+
+    function ownershipTransfer(groupId) {
+      let before = get(/databases/$(database)/documents/groups/$(groupId)).data;
+      let after = getAfter(/databases/$(database)/documents/groups/$(groupId)).data;
+      let target = after.ownerUid;
+      let actorBefore = get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data;
+      let actorAfter = getAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data;
+      let targetBefore = get(/databases/$(database)/documents/groups/$(groupId)/members/$(target)).data;
+      let targetAfter = getAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(target)).data;
+      let audit = getAfter(/databases/$(database)/documents/groups/$(groupId)/ownershipChanges/$(string(after.ownershipRevision))).data;
+      return isGroupAdmin(groupId) && groupWritable(groupId)
+        && groupOwner(groupId) == request.auth.uid && target != request.auth.uid
+        && after.ownershipRevision is int && after.ownershipRevision >= 1 && after.ownershipRevision <= 2147483647
+        && after.ownershipRevision == before.get('ownershipRevision', 0) + 1
+        && after.ownershipChangedBy == request.auth.uid && after.ownershipChangedAt == request.time
+        && after.updatedAt == request.time
+        && after.diff(before).affectedKeys().hasOnly(['ownerUid', 'ownershipRevision', 'ownershipChangedBy', 'ownershipChangedAt', 'updatedAt'])
+        && actorBefore.role == 'admin' && actorAfter.role == 'group_lead'
+        && actorAfter.diff(actorBefore).affectedKeys().hasOnly(['role'])
+        && targetBefore.role in ['member', 'group_lead'] && targetAfter.role == 'admin'
+        && targetAfter.diff(targetBefore).affectedKeys().hasOnly(['role'])
+        && accountActive(target)
+        && !exists(/databases/$(database)/documents/groups/$(groupId)/ownershipChanges/$(string(after.ownershipRevision)))
+        && audit.keys().hasAll(['groupId', 'fromOwner', 'toOwner', 'revision', 'changedBy', 'changedAt'])
+        && audit.keys().hasOnly(['groupId', 'fromOwner', 'toOwner', 'revision', 'changedBy', 'changedAt'])
+        && audit.groupId == groupId && audit.fromOwner == request.auth.uid && audit.toOwner == target
+        && audit.revision == after.ownershipRevision && audit.changedBy == request.auth.uid && audit.changedAt == request.time;
+    }
+
+    function moderationKind(kind) {
+      return kind in ['messages', 'highlights'];
+    }
+
+    function moderationReason(reason) {
+      return reason in ['spam', 'harassment', 'inappropriate', 'other'];
+    }
+
+    function validReport(data, uid) {
+      return data.keys().hasAll(['reporterUid', 'reason', 'details', 'createdAt',
+          'status', 'resolvedBy', 'resolvedAt'])
+        && data.keys().hasOnly(['reporterUid', 'reason', 'details', 'createdAt',
+          'status', 'resolvedBy', 'resolvedAt'])
+        && data.reporterUid == uid && moderationReason(data.reason)
+        && data.details is string && data.details.size() <= 1000
+        && data.createdAt is timestamp;
+    }
+
+    function validModeration(groupId, kind, itemId, data, authorUid) {
+      return moderationKind(kind) && isGroupAdmin(groupId) && groupWritable(groupId)
+        && data.keys().hasAll(['targetKind', 'targetId', 'authorUid',
+          'moderatedBy', 'moderatedAt', 'reason'])
+        && data.keys().hasOnly(['targetKind', 'targetId', 'authorUid',
+          'moderatedBy', 'moderatedAt', 'reason'])
+        && data.targetKind == kind && data.targetId == itemId
+        && data.authorUid is string && data.authorUid == authorUid
+        && data.moderatedBy == request.auth.uid
+        && data.moderatedAt == request.time && moderationReason(data.reason);
+    }
+
+    function coordinatedModeration(groupId, kind, itemId) {
+      return !exists(/databases/$(database)/documents/groups/$(groupId)/moderationRecords/$(kind)/items/$(itemId))
+        && validModeration(groupId, kind, itemId,
+          getAfter(/databases/$(database)/documents/groups/$(groupId)/moderationRecords/$(kind)/items/$(itemId)).data,
+          resource.data.senderUid);
+    }
+
+    // TEMPORARY RETENTION POLICY: retain historical records, revoke membership.
+    // These checks deliberately use PREWRITE group/membership roles, never
+    // caller claims or getAfter roles (no same-batch privilege bootstrap).
+    function canDepart(groupId, uid, reason) {
+      return isGroupMember(groupId) && groupWritable(groupId)
+        && exists(/databases/$(database)/documents/groups/$(groupId))
+        && uid != groupOwner(groupId)
+        && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(uid))
+        && ((isOwner(uid) && reason == 'left'
+            && get(/databases/$(database)/documents/groups/$(groupId)/members/$(uid)).data.role
+              in ['member', 'group_lead'])
+          || (!isOwner(uid) && reason == 'removed'
+            && (isGroupAdmin(groupId)
+              || (get(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'group_lead'
+                && get(/databases/$(database)/documents/groups/$(groupId)/members/$(uid)).data.role == 'member'))));
+    }
+
+    function validDeparture(groupId, uid, data) {
+      return request.auth != null
+        && data.keys().hasAll(['userId', 'removedBy', 'removedAt', 'reason'])
+        && data.keys().hasOnly(['userId', 'removedBy', 'removedAt', 'reason', 'restored', 'revision', 'changedBy', 'changedAt'])
+        && data.userId == uid && data.removedBy == request.auth.uid
+        && data.removedAt == request.time
+        && canDepart(groupId, uid, data.reason);
+    }
+
+    function departureStateAbsent(groupId, uid) {
+      return !existsAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(uid))
+        && !existsAfter(/databases/$(database)/documents/users/$(uid)/groups/$(groupId));
+    }
+
+    // Every client delete requires a new marker/version and both canonical
+    // membership/index absent after commit. Marker creation also requires the
+    // optional shared display absent. No unrelated private-index authority.
+    function coordinatedDeparture(groupId, uid) {
+      return validDeparture(groupId, uid,
+          getAfter(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)).data)
+        && ((!exists(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid))
+            && !getAfter(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)).data.keys().hasAny(['restored', 'revision', 'changedBy', 'changedAt']))
+          || (get(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)).data.get('restored', false) == true
+            && membershipTransition(groupId, uid, false)))
+        && exists(/databases/$(database)/documents/users/$(uid)/groups/$(groupId))
+        && departureStateAbsent(groupId, uid)
+        && !existsAfter(/databases/$(database)/documents/groups/$(groupId)/memberProfiles/$(uid));
+    }
+
+    function membershipTransition(groupId, uid, restored) {
+      let before = get(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)).data;
+      let after = getAfter(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)).data;
+      return after.keys().hasAll(['userId', 'removedBy', 'removedAt', 'reason', 'restored', 'revision', 'changedBy', 'changedAt'])
+        && after.keys().hasOnly(['userId', 'removedBy', 'removedAt', 'reason', 'restored', 'revision', 'changedBy', 'changedAt'])
+        && after.restored == restored && after.revision is int && after.revision >= 1 && after.revision <= 2147483647
+        && after.revision == before.get('revision', 0) + 1
+        && after.changedBy == request.auth.uid && after.changedAt == request.time
+        && !exists(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)/versions/$(string(before.get('revision', 0))))
+        && getAfter(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)/versions/$(string(before.get('revision', 0)))).data == before;
+    }
+
+    function coordinatedRestore(groupId, uid) {
+      let before = get(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)).data;
+      let after = getAfter(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)).data;
+      let member = getAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(uid)).data;
+      let index = getAfter(/databases/$(database)/documents/users/$(uid)/groups/$(groupId)).data;
+      return isGroupAdmin(groupId) && groupWritable(groupId)
+        && before.get('restored', false) == false
+        && !exists(/databases/$(database)/documents/groups/$(groupId)/members/$(uid))
+        && accountActive(uid)
+        && membershipTransition(groupId, uid, true)
+        && after.diff(before).affectedKeys().hasOnly(['restored', 'revision', 'changedBy', 'changedAt'])
+        && member.keys().hasAll(['userId', 'role', 'joinedAt']) && member.keys().hasOnly(['userId', 'role', 'joinedAt'])
+        && member.userId == uid && member.role == 'member' && member.joinedAt == request.time
+        && index.keys().hasAll(['groupId', 'joinedAt']) && index.keys().hasOnly(['groupId', 'joinedAt'])
+        && index.groupId == groupId && index.joinedAt == request.time
+        && !existsAfter(/databases/$(database)/documents/groups/$(groupId)/memberProfiles/$(uid));
+    }
+
+    function validAssignment(groupId, week, uid, unit) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['groupId', 'userId', 'weekNumber', 'unitKey',
+          'chapterStart', 'chapterEnd', 'scheduledDate', 'createdBy', 'createdAt',
+          'status', 'progressUpdatedAt'])
+        && (!data.keys().hasAny(['archived', 'revision', 'changedBy', 'changedAt'])
+          || (data.keys().hasAll(['archived', 'revision', 'changedBy', 'changedAt'])
+            && data.archived is bool && data.revision is int
+            && data.revision >= 1 && data.revision <= 2147483647
+            && data.changedBy is string && data.changedBy.size() > 0
+            && data.changedAt is timestamp))
+        && data.keys().hasOnly(['groupId', 'userId', 'weekNumber', 'unitKey',
+          'chapterStart', 'chapterEnd', 'scheduledDate', 'createdBy', 'createdAt',
+          'status', 'progressUpdatedAt', 'archived', 'revision', 'changedBy', 'changedAt'])
+        && data.groupId == groupId && data.userId == uid && data.unitKey == unit
+        && data.weekNumber is int && data.weekNumber >= 1 && data.weekNumber <= 10000
+        && week == string(data.weekNumber)
+        // 48 language-independent units. No inner chapter or alternate key.
+        && data.chapterStart is int && data.chapterStart >= 1 && data.chapterStart <= 51
+        && !(data.chapterStart in [17, 19, 44])
+        && data.chapterEnd is int
+        && data.chapterEnd == (data.chapterStart == 16 ? 17
+          : data.chapterStart == 18 ? 19
+          : data.chapterStart == 43 ? 44
+          : data.chapterStart == 51 ? 53 : data.chapterStart)
+        && unit == (data.chapterStart == data.chapterEnd ? string(data.chapterStart)
+          : string(data.chapterStart) + '-' + string(data.chapterEnd))
+        // Explicit manual scheduling instant, or null. No implicit Monday calculation.
+        && (data.scheduledDate == null || data.scheduledDate is timestamp)
+        && data.createdBy is string && data.createdAt is timestamp
+        && data.status in ['not_started', 'in_progress', 'completed']
+        && data.progressUpdatedAt is timestamp;
+    }
+
+    function assignmentTransition(groupId, uid, before, after) {
+      return canAssign(groupId)
+        && after.keys().hasAll(['archived', 'revision', 'changedBy', 'changedAt'])
+        && after.revision == before.get('revision', 0) + 1
+        && after.changedBy == request.auth.uid && after.changedAt == request.time
+        && ((after.archived == true && before.get('archived', false) == false
+            && after.diff(before).affectedKeys().hasOnly(['archived', 'revision', 'changedBy', 'changedAt']))
+          || (after.archived == false && before.get('archived', false) == true
+            && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(uid))
+            && after.createdBy == request.auth.uid && after.createdAt == request.time
+            && after.status == 'not_started' && after.progressUpdatedAt == request.time
+            && after.diff(before).affectedKeys().hasOnly(['archived', 'revision', 'changedBy', 'changedAt',
+              'createdBy', 'createdAt', 'scheduledDate', 'status', 'progressUpdatedAt'])));
+    }
+
+    function validGroupReminderSchedule(groupId) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['groupId', 'initialDay', 'initialHour', 'initialMinute',
+          'deadlineDay', 'deadlineHour', 'deadlineMinute', 'escalationEnabled',
+          'timezone', 'revision', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
+        && data.keys().hasOnly(['groupId', 'initialDay', 'initialHour', 'initialMinute',
+          'deadlineDay', 'deadlineHour', 'deadlineMinute', 'escalationEnabled',
+          'timezone', 'revision', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'])
+        && data.groupId == groupId && data.timezone == 'Asia/Kolkata'
+        && data.initialDay is int && data.initialDay >= 0 && data.initialDay <= 6
+        && data.deadlineDay is int && data.deadlineDay >= 0 && data.deadlineDay <= 6
+        && data.initialHour is int && data.initialHour >= 0 && data.initialHour <= 23
+        && data.deadlineHour is int && data.deadlineHour >= 0 && data.deadlineHour <= 23
+        && data.initialMinute is int && data.initialMinute >= 0 && data.initialMinute <= 59
+        && data.deadlineMinute is int && data.deadlineMinute >= 0 && data.deadlineMinute <= 59
+        && data.deadlineDay * 1440 + data.deadlineHour * 60 + data.deadlineMinute
+          > data.initialDay * 1440 + data.initialHour * 60 + data.initialMinute
+        && data.escalationEnabled is bool
+        && data.revision is int && data.revision >= 1 && data.revision <= 2147483647
+        && data.createdBy is string && data.createdAt is timestamp
+        && data.updatedBy == request.auth.uid && data.updatedAt == request.time
+        && data.createdAt <= data.updatedAt;
+    }
+
+    function validGroup() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'description', 'mode', 'createdBy',
+          'chaptersPerWeek', 'startChapter', 'currentWeek', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'description', 'mode', 'createdBy',
+          'chaptersPerWeek', 'startChapter', 'currentWeek', 'createdAt', 'updatedAt',
+          'archived', 'lifecycleRevision', 'lifecycleChangedBy', 'lifecycleChangedAt',
+          'ownerUid', 'ownershipRevision', 'ownershipChangedBy', 'ownershipChangedAt'])
+        && (!data.keys().hasAny(['ownerUid', 'ownershipRevision', 'ownershipChangedBy', 'ownershipChangedAt'])
+          || (data.keys().hasAll(['ownerUid', 'ownershipRevision', 'ownershipChangedBy', 'ownershipChangedAt'])
+            && data.ownerUid is string && data.ownerUid.size() > 0 && data.ownerUid.size() <= 128
+            && data.ownershipRevision is int && data.ownershipRevision >= 1 && data.ownershipRevision <= 2147483647
+            && data.ownershipChangedBy is string && data.ownershipChangedBy.size() > 0
+            && data.ownershipChangedAt is timestamp && data.ownershipChangedAt <= data.updatedAt))
+        && (!data.keys().hasAny(['archived', 'lifecycleRevision', 'lifecycleChangedBy', 'lifecycleChangedAt'])
+          || (data.keys().hasAll(['archived', 'lifecycleRevision', 'lifecycleChangedBy', 'lifecycleChangedAt'])
+            && data.archived is bool && data.lifecycleRevision is int
+            && data.lifecycleRevision >= 1 && data.lifecycleRevision <= 2147483647
+            && data.lifecycleChangedBy is string && data.lifecycleChangedBy.size() > 0
+            && data.lifecycleChangedBy.size() <= 1500 && data.lifecycleChangedAt is timestamp
+            && data.lifecycleChangedAt <= data.updatedAt))
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.name.matches('.*[^\\s].*')
+        && data.description is string && data.description.size() <= 1000
+        && data.mode in ['chapter_wise', 'saptah']
+        && data.createdBy is string
+        && data.chaptersPerWeek is int && data.chaptersPerWeek >= 1 && data.chaptersPerWeek <= 53
+        && data.startChapter is int && data.startChapter >= 1 && data.startChapter <= 53
+        && data.currentWeek is int && data.currentWeek >= 1 && data.currentWeek <= 10000
+        && data.createdAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function validMembership(uid) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['userId', 'role', 'joinedAt'])
+        && data.keys().hasOnly(['userId', 'role', 'joinedAt'])
+        && data.userId == uid && data.joinedAt == request.time;
+    }
+
+    function validInviteJoin(groupId, uid) {
+      let index = getAfter(/databases/$(database)/documents/users/$(uid)/groups/$(groupId)).data;
+      let invite = getAfter(/databases/$(database)/documents/groupInvites/$(index.inviteToken)).data;
+      return isOwner(uid)
+        && validInviteToken(index.inviteToken)
+        && invite.groupId == groupId && invite.active == true
+        && invite.expiresAt > request.time
+        && groupWritable(groupId)
+        && exists(/databases/$(database)/documents/groups/$(groupId));
+    }
+
+    // Minimal private profile contract only. No client-controlled permissions.
+    function validProfile() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['displayName', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['displayName', 'createdAt', 'updatedAt'])
+        && data.displayName is string
+        && data.displayName.size() > 0
+        && data.displayName.size() <= 100
+        && data.displayName.matches('.*[^\\s].*')
+        && data.createdAt is timestamp
+        && data.updatedAt == request.time;
+    }
+
+    match /users/{uid} {
+      allow get: if isOwner(uid);
+      allow create: if isOwner(uid) && validProfile()
+        && request.resource.data.createdAt == request.time;
+      // Name edits need an active profile. Deactivation adds the marker and
+      // restoration removes it; both leave the name and creation time untouched.
+      // Owned-group checks are client-side: rules cannot enumerate groups.
+      allow update: if isOwner(uid)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && ((validProfile() && !('deactivatedAt' in resource.data))
+          || (request.resource.data.displayName == resource.data.displayName
+            && ((!('deactivatedAt' in resource.data)
+                && request.resource.data.keys().hasOnly(['displayName', 'createdAt', 'updatedAt', 'deactivatedAt'])
+                && request.resource.data.deactivatedAt == request.time)
+              || ('deactivatedAt' in resource.data && validProfile()))));
+      // Permanent account deletion removes this private profile; the client
+      // leaves its groups first and deletes the Auth user afterwards.
+      allow list: if false;
+      allow delete: if isOwner(uid);
+
+      // Private preferences only, not group schedules or notification delivery.
+      match /settings/reminders {
+        allow get: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validReminderSettings();
+        allow list: if false;
+        allow delete: if isOwner(uid);
+      }
+
+      // Owner-readable discovery index. The canonical membership grants access.
+      match /groups/{groupId} {
+        allow get: if isOwner(uid);
+        allow list: if isOwner(uid) && request.query.limit <= 50;
+        // Deactivated accounts are refused by the membership create that must
+        // accompany this index entry.
+        allow create: if request.auth != null
+          && (!exists(/databases/$(database)/documents/groups/$(groupId)) || groupWritable(groupId))
+          && (!exists(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)) || coordinatedRestore(groupId, uid))
+          && request.resource.data.keys().hasAll(['groupId', 'joinedAt'])
+          && request.resource.data.keys().hasOnly(['groupId', 'joinedAt', 'inviteToken'])
+          && request.resource.data.groupId == groupId
+          && request.resource.data.joinedAt == request.time
+          && getAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(uid)).data.userId == uid
+          && getAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(uid)).data.joinedAt == request.time
+          && (!request.resource.data.keys().hasAny(['inviteToken']) || validInviteJoin(groupId, uid))
+          && (isGroupAdmin(groupId)
+            || (isOwner(uid)
+              && !exists(/databases/$(database)/documents/groups/$(groupId))
+              && getAfter(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == uid
+              && getAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(uid)).data.role == 'admin')
+            || (validInviteJoin(groupId, uid)
+              && getAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(uid)).data.role == 'member'));
+        allow update: if false;
+        allow delete: if coordinatedDeparture(groupId, uid);
+      }
+    }
+
+    match /groups/{groupId} {
+      // Group discovery uses users/{uid}/groups, never global group enumeration.
+      allow get: if isGroupMember(groupId);
+      allow list, delete: if false;
+      allow create: if request.auth != null && validGroup()
+        && !request.resource.data.keys().hasAny(['archived', 'lifecycleRevision', 'lifecycleChangedBy', 'lifecycleChangedAt'])
+        && !request.resource.data.keys().hasAny(['ownerUid', 'ownershipRevision', 'ownershipChangedBy', 'ownershipChangedAt'])
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.currentWeek == 1
+        && accountActive(request.auth.uid)
+        && getAfter(/databases/$(database)/documents/groups/$(groupId)/members/$(request.auth.uid)).data.role == 'admin'
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/groups/$(groupId)).data.groupId == groupId;
+      // Group leads (and admins) may only move the week forward by one. Cheap
+      // field checks come first to stay under the rules expression limit.
+      allow update: if validGroup()
+        && ((request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentWeek', 'updatedAt'])
+            && resource.data.currentWeek is int
+            && resource.data.currentWeek >= 1 && resource.data.currentWeek < 10000
+            && request.resource.data.currentWeek == resource.data.currentWeek + 1
+            && canAssign(groupId))
+        || (isGroupAdmin(groupId)
+        && (ownershipTransfer(groupId)
+          || (request.resource.data.keys().hasAll(['archived', 'lifecycleRevision', 'lifecycleChangedBy', 'lifecycleChangedAt'])
+            && request.resource.data.archived != resource.data.get('archived', false)
+            && request.resource.data.lifecycleRevision == resource.data.get('lifecycleRevision', 0) + 1
+            && request.resource.data.lifecycleChangedBy == request.auth.uid
+            && request.resource.data.lifecycleChangedAt == request.time
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['archived', 'lifecycleRevision', 'lifecycleChangedBy', 'lifecycleChangedAt', 'updatedAt']))
+          || (request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['name', 'description', 'chaptersPerWeek', 'startChapter', 'updatedAt'])
+            && groupWritable(groupId)))));
+
+      match /settings/notificationSchedule {
+        allow get: if isGroupMember(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId));
+        allow create: if canAssign(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && validGroupReminderSchedule(groupId)
+          && request.resource.data.revision == 1
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdAt == request.time;
+        allow update: if canAssign(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && validGroupReminderSchedule(groupId)
+          && request.resource.data.revision == resource.data.revision + 1
+          && request.resource.data.createdBy == resource.data.createdBy
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow list, delete: if false;
+      }
+
+      match /members/{uid} {
+        allow get: if isGroupMember(groupId);
+        allow list: if isGroupMember(groupId) && request.query.limit <= 50;
+        allow create: if request.auth != null && validMembership(uid)
+          && (!exists(/databases/$(database)/documents/groups/$(groupId)) || groupWritable(groupId))
+          && (!exists(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)) || coordinatedRestore(groupId, uid))
+          && accountActive(uid)
+          && getAfter(/databases/$(database)/documents/users/$(uid)/groups/$(groupId)).data.groupId == groupId
+          && getAfter(/databases/$(database)/documents/users/$(uid)/groups/$(groupId)).data.joinedAt == request.time
+          && ((isOwner(uid)
+              && !exists(/databases/$(database)/documents/groups/$(groupId))
+              && getAfter(/databases/$(database)/documents/groups/$(groupId)).data.createdBy == uid
+              && request.resource.data.role == 'admin')
+            || (isGroupAdmin(groupId) && request.resource.data.role == 'member')
+            || (validInviteJoin(groupId, uid) && request.resource.data.role == 'member'));
+        allow update: if (isGroupAdmin(groupId) && groupWritable(groupId)
+          && uid != groupOwner(groupId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+          && request.resource.data.role in ['member', 'group_lead'])
+          || (ownershipTransfer(groupId)
+            && uid in [request.auth.uid, getAfter(/databases/$(database)/documents/groups/$(groupId)).data.ownerUid]);
+        allow delete: if coordinatedDeparture(groupId, uid);
+      }
+
+      match /ownershipChanges/{revision} {
+        allow get: if isGroupMember(groupId);
+        allow list: if isGroupMember(groupId) && request.query.limit <= 48;
+        allow create: if ownershipTransfer(groupId)
+          && revision == string(getAfter(/databases/$(database)/documents/groups/$(groupId)).data.ownershipRevision);
+        allow update, delete: if false;
+      }
+
+      // Minimal versioned audit marker; before-images cannot change or disappear.
+      // Only coordinated admin restoration permits fresh membership/discovery.
+      match /departures/{uid} {
+        allow get: if isOwner(uid) || isGroupAdmin(groupId) || canDepart(groupId, uid, 'removed');
+        allow list: if isGroupAdmin(groupId) && request.query.limit <= 50;
+        allow create: if validDeparture(groupId, uid, request.resource.data)
+          && !request.resource.data.keys().hasAny(['restored', 'revision', 'changedBy', 'changedAt'])
+          && exists(/databases/$(database)/documents/users/$(uid)/groups/$(groupId))
+          && departureStateAbsent(groupId, uid)
+          && !existsAfter(/databases/$(database)/documents/groups/$(groupId)/memberProfiles/$(uid));
+        allow update: if coordinatedRestore(groupId, uid) || coordinatedDeparture(groupId, uid);
+        allow delete: if false;
+        match /versions/{version} {
+          allow get: if isOwner(uid) || isGroupAdmin(groupId) || canDepart(groupId, uid, 'removed');
+          allow list: if (isOwner(uid) || isGroupAdmin(groupId)) && request.query.limit <= 48;
+          allow create: if version == string(get(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)).data.get('revision', 0))
+            && request.resource.data == get(/databases/$(database)/documents/groups/$(groupId)/departures/$(uid)).data
+            && (coordinatedRestore(groupId, uid) || coordinatedDeparture(groupId, uid));
+          allow update, delete: if false;
+        }
+      }
+
+      // Opt-in group-visible names, separate from private users/{uid} profiles.
+      // No identity copies in memberships or messages; only the member edits self.
+      match /memberProfiles/{uid} {
+        allow get: if isGroupMember(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId));
+        allow list: if isGroupMember(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && request.query.limit <= 50;
+        allow create: if isOwner(uid) && isGroupMember(groupId) && groupWritable(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && validMemberDisplay()
+          && request.resource.data.createdAt == request.time;
+        allow update: if isOwner(uid) && isGroupMember(groupId) && groupWritable(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && validMemberDisplay()
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if coordinatedDeparture(groupId, uid);
+      }
+
+      match /messages/{messageId} {
+        allow get: if isGroupMember(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId));
+        allow list: if isGroupMember(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && request.query.limit <= 50;
+        allow create: if isGroupMember(groupId) && groupWritable(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && !exists(/databases/$(database)/documents/groups/$(groupId)/moderationRecords/messages/items/$(messageId))
+          && request.resource.data.keys().hasAll(['senderUid', 'text', 'createdAt'])
+          && request.resource.data.keys().hasOnly(['senderUid', 'text', 'createdAt'])
+          && request.resource.data.senderUid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() >= 1
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.text.matches('[\\s\\S]*[^\\s][\\s\\S]*')
+          && request.resource.data.createdAt == request.time;
+        allow update: if false;
+        allow delete: if coordinatedModeration(groupId, 'messages', messageId);
+      }
+
+      // Chapter-specific quote anchors preserve original chapters, including
+      // 17/19/44/52/53; these are NOT the 48 canonical assignment units.
+      match /highlights/{highlightId} {
+        allow get: if isGroupMember(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId));
+        allow list: if isGroupMember(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && request.query.limit <= 50;
+        allow create: if isGroupMember(groupId) && groupWritable(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && !exists(/databases/$(database)/documents/groups/$(groupId)/moderationRecords/highlights/items/$(highlightId))
+          && validHighlight()
+          && request.resource.data.senderUid == request.auth.uid;
+        allow update: if false;
+        allow delete: if coordinatedModeration(groupId, 'highlights', highlightId);
+      }
+
+      // Reports survive hard deletion of their parent item. Reads intentionally
+      // depend on current membership, not target existence or copied content.
+      match /{kind}/{itemId}/reports/{uid} {
+        allow get: if moderationKind(kind) && isGroupMember(groupId)
+          && (isOwner(uid) || isGroupAdmin(groupId));
+        allow list: if moderationKind(kind) && isGroupAdmin(groupId)
+          && request.query.limit <= 50;
+        allow create: if moderationKind(kind) && isOwner(uid) && isGroupMember(groupId) && groupWritable(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId)/$(kind)/$(itemId))
+          && validReport(request.resource.data, uid)
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.status == 'open'
+          && request.resource.data.resolvedBy == null
+          && request.resource.data.resolvedAt == null;
+        allow update: if moderationKind(kind) && isGroupAdmin(groupId) && groupWritable(groupId)
+          && validReport(request.resource.data, uid)
+          && resource.data.status == 'open'
+          && request.resource.data.status in ['resolved', 'dismissed']
+          && request.resource.data.resolvedBy == request.auth.uid
+          && request.resource.data.resolvedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'resolvedBy', 'resolvedAt']);
+        allow delete: if false;
+      }
+
+      // Prewrite authority and target identity; the minimal immutable marker
+      // and hard delete must commit together. No report prerequisite or copies.
+      match /moderationRecords/{kind}/items/{itemId} {
+        allow get: if moderationKind(kind) && isGroupAdmin(groupId);
+        allow list: if moderationKind(kind) && isGroupAdmin(groupId)
+          && request.query.limit <= 50;
+        allow create: if moderationKind(kind) && isGroupAdmin(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId)/$(kind)/$(itemId))
+          && validModeration(groupId, kind, itemId, request.resource.data,
+            get(/databases/$(database)/documents/groups/$(groupId)/$(kind)/$(itemId)).data.senderUid)
+          && !existsAfter(/databases/$(database)/documents/groups/$(groupId)/$(kind)/$(itemId));
+        allow update, delete: if false;
+      }
+
+      // Parent week/member documents are not required or client-writable.
+      // Fixed path scopes reads without query filters or duplicated progress docs.
+      match /readingWeeks/{week}/members/{uid}/assignments/{unit} {
+        allow get: if isGroupMember(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId));
+        allow list: if isGroupMember(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && request.query.limit <= 48;
+        // Pre-write memberships/roles intentionally deny atomic self-promotion
+        // or joining-and-assigning. Commit membership first, then assign.
+        allow create: if canAssign(groupId)
+          && exists(/databases/$(database)/documents/groups/$(groupId))
+          && exists(/databases/$(database)/documents/groups/$(groupId)/members/$(uid))
+          && validAssignment(groupId, week, uid, unit)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.progressUpdatedAt == request.time
+          && !request.resource.data.keys().hasAny(['archived', 'revision', 'changedBy', 'changedAt'])
+          && request.resource.data.status == 'not_started';
+        allow update: if validAssignment(groupId, week, uid, unit)
+          && ((isOwner(uid) && isGroupMember(groupId) && groupWritable(groupId)
+              && resource.data.get('archived', false) == false
+              && resource.data.createdAt >= get(/databases/$(database)/documents/groups/$(groupId)/members/$(uid)).data.joinedAt
+              && request.resource.data.progressUpdatedAt == request.time
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'progressUpdatedAt']))
+            || (assignmentTransition(groupId, uid, resource.data, request.resource.data)
+              && !exists(/databases/$(database)/documents/groups/$(groupId)/readingWeeks/$(week)/members/$(uid)/assignments/$(unit)/versions/$(string(resource.data.get('revision', 0))))
+              && getAfter(/databases/$(database)/documents/groups/$(groupId)/readingWeeks/$(week)/members/$(uid)/assignments/$(unit)/versions/$(string(resource.data.get('revision', 0)))).data == resource.data));
+        allow delete: if false;
+
+        match /versions/{version} {
+          allow get: if isGroupMember(groupId)
+            && exists(/databases/$(database)/documents/groups/$(groupId));
+          allow list: if isGroupMember(groupId) && request.query.limit <= 48
+            && exists(/databases/$(database)/documents/groups/$(groupId));
+          allow create: if exists(/databases/$(database)/documents/groups/$(groupId)/readingWeeks/$(week)/members/$(uid)/assignments/$(unit))
+            && version == string(get(/databases/$(database)/documents/groups/$(groupId)/readingWeeks/$(week)/members/$(uid)/assignments/$(unit)).data.get('revision', 0))
+            && request.resource.data == get(/databases/$(database)/documents/groups/$(groupId)/readingWeeks/$(week)/members/$(uid)/assignments/$(unit)).data
+            && assignmentTransition(groupId, uid, request.resource.data,
+              getAfter(/databases/$(database)/documents/groups/$(groupId)/readingWeeks/$(week)/members/$(uid)/assignments/$(unit)).data);
+          allow update, delete: if false;
+        }
+      }
+    }
+
+    match /groupInvites/{token} {
+      // Bearer capability: authenticated exact-token reads only, never enumeration.
+      allow get: if request.auth != null && validInviteToken(token);
+      allow list, delete: if false;
+      // Admins and group leads invite; anyone can revoke their own invite and
+      // admins can revoke any invite of their group.
+      allow create: if request.auth != null && validInviteToken(token)
+        && groupWritable(request.resource.data.groupId)
+        && request.resource.data.keys().hasAll(['groupId', 'createdBy', 'createdAt', 'expiresAt', 'active'])
+        && request.resource.data.keys().hasOnly(['groupId', 'createdBy', 'createdAt', 'expiresAt', 'active'])
+        && request.resource.data.groupId is string
+        && canAssign(request.resource.data.groupId)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.active == true
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(7, 'd');
+      // One-way revocation; changing token scope/expiry or reactivating is denied.
+      allow update: if canAssign(resource.data.groupId)
+        && (isGroupAdmin(resource.data.groupId) || resource.data.createdBy == request.auth.uid)
+        && resource.data.active == true && request.resource.data.active == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active']);
+    }
+
+    function validMemberDisplay() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['displayName', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['displayName', 'createdAt', 'updatedAt'])
+        && data.displayName is string
+        && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.displayName.matches('[\\s\\S]*[^\\s][\\s\\S]*')
+        && data.createdAt is timestamp && data.updatedAt == request.time;
+    }
+
+    // Legacy root assignments/progress, chat and all other paths stay locked.
+    function validHighlight() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['senderUid', 'chapterNumber', 'paragraphIndex', 'quote', 'text', 'createdAt'])
+        && data.keys().hasOnly(['senderUid', 'chapterNumber', 'paragraphIndex', 'quote', 'text', 'createdAt'])
+        && data.senderUid is string
+        && data.chapterNumber is int && data.chapterNumber >= 1 && data.chapterNumber <= 53
+        // Matches the backend's nonnegative PostgreSQL Integer anchor.
+        && data.paragraphIndex is int && data.paragraphIndex >= 0 && data.paragraphIndex <= 2147483647
+        && data.quote is string && data.quote.size() >= 1 && data.quote.size() <= 500
+        && data.quote.matches('[\\s\\S]*[^\\s][\\s\\S]*')
+        && data.text is string && data.text.size() >= 1 && data.text.size() <= 2000
+        && data.text.matches('[\\s\\S]*[^\\s][\\s\\S]*')
+        && data.createdAt == request.time;
+    }
+
+    function validReminderSettings() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['readingReminderEnabled', 'dailyVerseEnabled',
+          'reminderHour', 'reminderMinute', 'timezone', 'updatedAt'])
+        && data.keys().hasOnly(['readingReminderEnabled', 'dailyVerseEnabled',
+          'reminderHour', 'reminderMinute', 'timezone', 'updatedAt'])
+        && data.readingReminderEnabled is bool && data.dailyVerseEnabled is bool
+        && data.reminderHour is int && data.reminderHour >= 0 && data.reminderHour <= 23
+        && data.reminderMinute is int && data.reminderMinute >= 0 && data.reminderMinute <= 59
+        && data.timezone == 'Asia/Kolkata'
+        && data.updatedAt == request.time;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -190,6 +190,47 @@ class TestTokenRefresh:
         )
         assert response.status_code == 401
 
+    def test_refresh_token_cannot_be_replayed(self):
+        register_response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "name": "Refresh Replay",
+                "email": "refresh-replay@example.com",
+                "password": "password123",
+            },
+        )
+        refresh_token = register_response.json()["refresh_token"]
+        assert client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": refresh_token},
+        ).status_code == 200
+        assert client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": refresh_token},
+        ).status_code == 401
+
+    def test_password_change_revokes_existing_tokens(self):
+        register_response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "name": "Password Revision",
+                "email": "password-revision@example.com",
+                "password": "password123",
+            },
+        )
+        data = register_response.json()
+        headers = {"Authorization": f"Bearer {data['access_token']}"}
+        assert client.post(
+            "/api/v1/auth/change-password",
+            json={"current_password": "password123", "new_password": "newpassword123"},
+            headers=headers,
+        ).status_code == 200
+        assert client.get("/api/v1/auth/me", headers=headers).status_code == 401
+        assert client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": data["refresh_token"]},
+        ).status_code == 401
+
 
 class TestProtectedEndpoints:
     """Tests for authentication-protected endpoints."""

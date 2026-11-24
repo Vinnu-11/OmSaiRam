@@ -57,6 +57,11 @@ dependencies:
   # Notifications
   flutter_local_notifications: ^17.0.0
   timezone: ^0.9.4
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  cloud_firestore: ^6.10.0
+  html: ^0.15.7
+  crypto: ^3.0.8
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +76,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - web/live_player.html
     - assets/content/
     - assets/images/
     - assets/i18n/

@@ -9,6 +9,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/services/router_service.dart';
 import '../../../core/providers/language_provider.dart';
 import '../../../core/l10n/s.dart';
+import '../../../core/config/backend_config.dart';
+import '../../../shared/widgets/baba_image.dart';
 
 class AudioHubScreen extends ConsumerWidget {
   const AudioHubScreen({super.key});
@@ -32,26 +34,8 @@ class AudioHubScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-              // Baba photo from sai.org.in
-              ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Image.network(
-                  'https://sai.org.in/sites/default/files/video.jpg',
-                  width: double.infinity,
-                  height: 180,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    height: 180,
-                    decoration: BoxDecoration(
-                      color: AppColors.saffron.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Center(
-                      child: Icon(Icons.temple_hindu_rounded, size: 60, color: AppColors.saffron),
-                    ),
-                  ),
-                ),
-              ),
+              const Center(child: BabaImage(width: 230, height: 250,
+                borderRadius: 20, alignment: Alignment.topCenter)),
 
               const SizedBox(height: 28),
 
@@ -89,6 +73,15 @@ class AudioHubScreen extends ConsumerWidget {
                 color: AppColors.deepOrange,
                 onTap: () => context.go(AppRoutes.satcharitaAudio),
               ),
+              if (ref.watch(backendConfigProvider).mode == BackendMode.firebase) ...[
+                const SizedBox(height: 16),
+                ListTile(leading: const Icon(Icons.live_tv_outlined),
+                  title: const Text('Live Darshan'), trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.go(AppRoutes.liveDarshan)),
+                ListTile(leading: const Icon(Icons.event_outlined),
+                  title: const Text('Upcoming Events'), trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.go(AppRoutes.events)),
+              ],
 
           ],
         ),
