@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "run_id": "QA-2026-11-23-02",
-  "executed_at_utc": "2026-11-24T07:49:35Z",
+  "run_id": "QA-2026-11-23-03",
+  "executed_at_utc": "2026-11-24T08:16:19Z",
   "recommendation": "LOCAL_GATES_PASS_RELEASE_VALIDATION_PENDING",
   "summary": {
     "automated_suite_checks_passed": 3158,
@@ -20,7 +20,7 @@
       "passed": 2459,
       "failed": 0,
       "skipped": 0,
-      "duration_seconds": 77.393,
+      "duration_seconds": 92.743,
       "status": "Pass"
     },
     {
@@ -67,10 +67,10 @@
       "command": "flutter analyze",
       "errors": 0,
       "warnings": 0,
-      "infos": 371,
-      "exit_code": 1,
-      "status": "QualityGateFail",
-      "note": "No warning or error diagnostics; the configured analyzer still exits nonzero because 371 info diagnostics remain."
+      "infos": 0,
+      "exit_code": 0,
+      "status": "Pass",
+      "note": "No diagnostics."
     },
     {
       "name": "FastAPI QA catalogue probes",
@@ -87,7 +87,7 @@
     {
       "target": "web-debug",
       "status": "Pass",
-      "duration_seconds": 74,
+      "duration_seconds": 108,
       "artifact": "om_sai_ram/build/web",
       "size": "89M"
     },
@@ -117,6 +117,30 @@
       "status": "Pass",
       "artifact": "om_sai_ram/build/web",
       "note": "Rebuilt after release validation so localhost:8126 serves emulator-mode QA output."
+    }
+  ],
+  "database_validation": [
+    {
+      "name": "PostgreSQL 16 Alembic migration",
+      "status": "Pass",
+      "checks": [
+        "upgrade to 002_refresh_rotation",
+        "token_version default and nullability",
+        "refresh-token user index",
+        "ON DELETE CASCADE",
+        "downgrade to base",
+        "re-upgrade to head"
+      ]
+    },
+    {
+      "name": "PostgreSQL refresh-token concurrency",
+      "status": "Pass",
+      "checks": [
+        "simultaneous refresh produced one 200 and one 401",
+        "password change revoked prior access token",
+        "password change revoked prior refresh token",
+        "new password login succeeded"
+      ]
     }
   ],
   "browser_smoke": {
@@ -152,7 +176,7 @@
   "blocked_certification": [
     "Physical Android phone/tablet behavior, permissions, background audio, notification delivery, and accessibility services",
     "Real Firebase project, production Auth providers, SMS, cloud Functions deployment, and production security configuration",
-    "PostgreSQL migrations, restore, cascade, and concurrent-write guarantees",
+    "PostgreSQL restore and full domain cascade/concurrent-write guarantees beyond the certified refresh-token path",
     "Cross-browser web matrix and hosted SPA deep-link refresh",
     "Human linguistic/OCR/source review for all 18 bundled languages"
   ]

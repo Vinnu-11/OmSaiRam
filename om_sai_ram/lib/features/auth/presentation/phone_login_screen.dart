@@ -177,7 +177,7 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                    color: AppColors.saffron.withOpacity(0.1),
+                    color: AppColors.saffron.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -202,9 +202,9 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
               const SizedBox(height: 8),
               Text(
                 _otpSent
-                    ? '${tr.otpSentTo} ${_normalizedPhone}'
+                    ? '${tr.otpSentTo} $_normalizedPhone'
                     : 'We\'ll send a 6-digit OTP to your mobile number',
-                style: TextStyle(color: AppColors.lightText, fontSize: 14, height: 1.5),
+                style: const TextStyle(color: AppColors.lightText, fontSize: 14, height: 1.5),
                 textAlign: TextAlign.center,
               ),
 
@@ -297,7 +297,7 @@ class _PhoneStep extends StatelessWidget {
               hintText: mobileHint,
               prefixIcon: const Icon(Icons.phone_outlined),
               helperText: 'Include country code, e.g. +91 for India',
-              helperStyle: TextStyle(color: AppColors.lightText, fontSize: 12),
+              helperStyle: const TextStyle(color: AppColors.lightText, fontSize: 12),
             ),
           ),
           const SizedBox(height: 28),
@@ -379,7 +379,7 @@ class _OtpStep extends StatelessWidget {
             ),
             decoration: InputDecoration(
               hintText: '------',
-              hintStyle: TextStyle(
+              hintStyle: const TextStyle(
                   fontSize: 28,
                   letterSpacing: 10,
                   color: AppColors.lightGrey,
@@ -405,7 +405,7 @@ class _OtpStep extends StatelessWidget {
           Text(
             otpExpiryLabel,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: AppColors.lightText),
+            style: const TextStyle(fontSize: 12, color: AppColors.lightText),
           ),
 
           // New account: ask for name
@@ -414,11 +414,11 @@ class _OtpStep extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.saffron.withOpacity(0.06),
+                color: AppColors.saffron.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.saffron.withOpacity(0.2)),
+                border: Border.all(color: AppColors.saffron.withValues(alpha: 0.2)),
               ),
-              child: Text(
+              child: const Text(
                 'No account found. Please enter your name to create a new account.',
                 style: TextStyle(
                     color: AppColors.mediumText, fontSize: 13, height: 1.5),
@@ -464,7 +464,7 @@ class _OtpStep extends StatelessWidget {
             child: resendSecondsLeft > 0
                 ? Text(
                     'Resend OTP in ${_formatTimer(resendSecondsLeft)}',
-                    style: TextStyle(color: AppColors.lightText, fontSize: 14),
+                    style: const TextStyle(color: AppColors.lightText, fontSize: 14),
                   )
                 : TextButton(
                     onPressed: onResend,

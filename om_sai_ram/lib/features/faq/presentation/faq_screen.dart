@@ -66,13 +66,13 @@ class FaqScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.saffron.withOpacity(0.05),
+              color: AppColors.saffron.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.saffron.withOpacity(0.15)),
+              border: Border.all(color: AppColors.saffron.withValues(alpha: 0.15)),
             ),
             child: Row(
               children: [
-                Icon(Icons.mail_outline, color: AppColors.saffron, size: 24),
+                const Icon(Icons.mail_outline, color: AppColors.saffron, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -126,12 +126,12 @@ class _FaqTile extends StatelessWidget {
             height: 28,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.saffron.withOpacity(0.1),
+              color: AppColors.saffron.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               '${index + 1}',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.saffron,
                 fontWeight: FontWeight.w700,
                 fontSize: 13,

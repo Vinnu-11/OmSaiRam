@@ -66,10 +66,10 @@ class EventsScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.cloud_off_rounded,
+                const Icon(Icons.cloud_off_rounded,
                     size: 48, color: AppColors.lightText),
                 const SizedBox(height: 16),
-                Text(
+                const Text(
                   'Unable to load events',
                   style: TextStyle(
                     fontSize: 16,
@@ -80,7 +80,7 @@ class EventsScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   firebase ? 'Check the local Functions connection and try again.' : 'Please check your connection and try again.',
-                  style: TextStyle(fontSize: 13, color: AppColors.lightText),
+                  style: const TextStyle(fontSize: 13, color: AppColors.lightText),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -98,15 +98,15 @@ class EventsScreen extends ConsumerWidget {
         ),
         data: (festivals) {
           if (festivals.isEmpty) {
-            return Center(
+            return const Center(
               child: Padding(
-                padding: const EdgeInsets.all(32),
+                padding: EdgeInsets.all(32),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const BabaImage(width: 76, height: 76, borderRadius: 38,
+                    BabaImage(width: 76, height: 76, borderRadius: 38,
                       alignment: Alignment(0, -0.78)),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     Text(
                       'No upcoming events',
                       style: TextStyle(
@@ -115,7 +115,7 @@ class EventsScreen extends ConsumerWidget {
                         color: AppColors.darkText,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(
                       'Check back later for festival announcements.',
                       style: TextStyle(fontSize: 13, color: AppColors.lightText),
@@ -154,8 +154,8 @@ class EventsScreen extends ConsumerWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AppColors.saffron.withOpacity(0.12),
-              AppColors.saffron.withOpacity(0.04),
+              AppColors.saffron.withValues(alpha: 0.12),
+              AppColors.saffron.withValues(alpha: 0.04),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -185,7 +185,7 @@ class EventsScreen extends ConsumerWidget {
                       'From sai.org.in\nFetched ${DateFormat('MMM d, yyyy HH:mm').format(feed.metadata.fetchedAt)} UTC\n'
                       '${feed.metadata.stale ? 'Cached data (stale)' : 'Fresh until ${DateFormat('MMM d, yyyy HH:mm').format(feed.metadata.freshUntil)} UTC'}'
                       '${feed.truncated ? '\nSome source entries were truncated.' : ''}',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
                       color: AppColors.lightText,
                     ),
@@ -239,13 +239,13 @@ class _FestivalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isUpcoming
-              ? AppColors.saffron.withOpacity(0.3)
+              ? AppColors.saffron.withValues(alpha: 0.3)
               : AppColors.lightGrey,
         ),
         boxShadow: isUpcoming
             ? [
                 BoxShadow(
-                  color: AppColors.saffron.withOpacity(0.08),
+                  color: AppColors.saffron.withValues(alpha: 0.08),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -261,8 +261,8 @@ class _FestivalCard extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: isUpcoming
-                      ? AppColors.saffron.withOpacity(0.12)
-                      : AppColors.lightGrey.withOpacity(0.5),
+                      ? AppColors.saffron.withValues(alpha: 0.12)
+                      : AppColors.lightGrey.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -306,7 +306,7 @@ class _FestivalCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.saffron.withOpacity(0.12),
+                    color: AppColors.saffron.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(

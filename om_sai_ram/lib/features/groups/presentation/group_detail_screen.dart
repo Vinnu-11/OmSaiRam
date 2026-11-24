@@ -116,7 +116,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 48, color: AppColors.error),
+              const Icon(Icons.error_outline, size: 48, color: AppColors.error),
               const SizedBox(height: 16),
               Text('Group not found',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
@@ -192,10 +192,10 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.saffron.withOpacity(0.1),
+                color: AppColors.saffron.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.share_outlined, color: AppColors.saffron, size: 20),
+              child: const Icon(Icons.share_outlined, color: AppColors.saffron, size: 20),
             ),
             const SizedBox(width: 10),
             const Text('Invite Code'),
@@ -215,12 +215,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
               decoration: BoxDecoration(
                 color: AppColors.cream,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.saffron.withOpacity(0.2)),
+                border: Border.all(color: AppColors.saffron.withValues(alpha: 0.2)),
               ),
               child: Center(
                 child: SelectableText(
                   code,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 5,
@@ -252,7 +252,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
                     label: const Text('Copy'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.saffron,
-                      side: BorderSide(color: AppColors.saffron.withOpacity(0.4)),
+                      side: BorderSide(color: AppColors.saffron.withValues(alpha: 0.4)),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -307,10 +307,11 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
               Navigator.pop(ctx);
               try {
                 await ref.read(groupsRepositoryProvider).leaveGroup(widget.groupId);
+                if (!context.mounted) return;
                 ref.read(groupsProvider.notifier).loadGroups();
-                if (mounted) context.pop();
+                context.pop();
               } catch (e) {
-                if (mounted) {
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Failed to leave group: $e')),
                   );
@@ -411,7 +412,7 @@ class _MemberCard extends ConsumerWidget {
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
         subtitle: Text(
           _roleLabel(member.role, tr),
-          style: TextStyle(fontSize: 12, color: AppColors.lightText),
+          style: const TextStyle(fontSize: 12, color: AppColors.lightText),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -422,7 +423,7 @@ class _MemberCard extends ConsumerWidget {
               const SizedBox(width: 4),
               GestureDetector(
                 onTap: () => _showRoleSheet(context, ref),
-                child: Icon(Icons.edit_outlined, size: 18, color: AppColors.lightText),
+                child: const Icon(Icons.edit_outlined, size: 18, color: AppColors.lightText),
               ),
               const SizedBox(width: 4),
               GestureDetector(
@@ -463,7 +464,7 @@ class _MemberCard extends ConsumerWidget {
             Text('Change Role for ${member.name}',
                 style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
-            Text('Group Lead can assign chapters but cannot delete the group.',
+            const Text('Group Lead can assign chapters but cannot delete the group.',
                 style: TextStyle(color: AppColors.lightText, fontSize: 13)),
             const SizedBox(height: 20),
             _RoleOption(
@@ -567,7 +568,7 @@ class _RoleOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: selected ? AppColors.saffron.withOpacity(0.08) : AppColors.cream,
+          color: selected ? AppColors.saffron.withValues(alpha: 0.08) : AppColors.cream,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? AppColors.saffron : AppColors.lightGrey,
@@ -587,11 +588,11 @@ class _RoleOption extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                           color: selected ? AppColors.saffron : AppColors.darkText)),
                   Text(description,
-                      style: TextStyle(fontSize: 12, color: AppColors.lightText)),
+                      style: const TextStyle(fontSize: 12, color: AppColors.lightText)),
                 ],
               ),
             ),
-            if (selected) Icon(Icons.check_circle, color: AppColors.saffron, size: 20),
+            if (selected) const Icon(Icons.check_circle, color: AppColors.saffron, size: 20),
           ],
         ),
       ),
@@ -940,13 +941,13 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppColors.saffron.withOpacity(0.08),
+                      color: AppColors.saffron.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.saffron.withOpacity(0.25)),
+                      border: Border.all(color: AppColors.saffron.withValues(alpha: 0.25)),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.notifications_outlined, size: 18, color: AppColors.saffron),
+                        const Icon(Icons.notifications_outlined, size: 18, color: AppColors.saffron),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -956,14 +957,14 @@ class _ScheduleTabState extends ConsumerState<_ScheduleTab> {
                                   '${_notifSchedule!.initialReminderHour}:${_notifSchedule!.initialReminderMinute.toString().padLeft(2, "0")} '
                                   '— deadline ${_dayName(_notifSchedule!.deadlineDayOffset)} '
                                   '${_notifSchedule!.deadlineHour}:${_notifSchedule!.deadlineMinute.toString().padLeft(2, "0")}',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.saffron,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
-                        Icon(Icons.edit_outlined, size: 14, color: AppColors.saffron),
+                        const Icon(Icons.edit_outlined, size: 14, color: AppColors.saffron),
                       ],
                     ),
                   ),
@@ -1159,7 +1160,7 @@ class _NotificationScheduleSheetState
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
-            color: AppColors.saffron.withOpacity(0.10),
+            color: AppColors.saffron.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
@@ -1251,7 +1252,7 @@ class _NotificationScheduleSheetState
               Switch(
                 value: _escalationEnabled,
                 onChanged: (v) => setState(() => _escalationEnabled = v),
-                activeColor: AppColors.saffron,
+                activeThumbColor: AppColors.saffron,
               ),
             ],
           ),
@@ -2056,12 +2057,12 @@ class _AssignmentCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.saffron.withOpacity(0.1),
+                  color: AppColors.saffron.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   'Ch. ${assignment.displayChapterLabel}',
-                  style: TextStyle(
+                  style: const TextStyle(
                       color: AppColors.saffron,
                       fontWeight: FontWeight.w700,
                       fontSize: 13),
@@ -2078,18 +2079,18 @@ class _AssignmentCard extends StatelessWidget {
               if (canAssign)
                 GestureDetector(
                   onTap: onDelete,
-                  child: Icon(Icons.close, size: 18, color: AppColors.lightText),
+                  child: const Icon(Icons.close, size: 18, color: AppColors.lightText),
                 ),
             ],
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              Icon(Icons.person_outline, size: 14, color: AppColors.lightText),
+              const Icon(Icons.person_outline, size: 14, color: AppColors.lightText),
               const SizedBox(width: 4),
               Text(
                 assignment.userName ?? 'Unassigned',
-                style: TextStyle(fontSize: 13, color: AppColors.mediumText),
+                style: const TextStyle(fontSize: 13, color: AppColors.mediumText),
               ),
               const Spacer(),
               // Progress badge — tap to cycle status
@@ -2105,9 +2106,9 @@ class _AssignmentCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _statusColor.withOpacity(0.12),
+                    color: _statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: _statusColor.withOpacity(0.3)),
+                    border: Border.all(color: _statusColor.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     _statusLabel(tr),
@@ -2124,11 +2125,11 @@ class _AssignmentCard extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.lightText),
+                const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.lightText),
                 const SizedBox(width: 4),
                 Text(
                   _formatDate(assignment.scheduledDate!),
-                  style: TextStyle(fontSize: 12, color: AppColors.lightText),
+                  style: const TextStyle(fontSize: 12, color: AppColors.lightText),
                 ),
               ],
             ),
@@ -2169,10 +2170,10 @@ class _EmptySchedule extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppColors.saffron.withOpacity(0.08),
+                color: AppColors.saffron.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.calendar_today_outlined, size: 44, color: AppColors.saffron),
+              child: const Icon(Icons.calendar_today_outlined, size: 44, color: AppColors.saffron),
             ),
             const SizedBox(height: 20),
             Text('No chapters this week',
@@ -2186,7 +2187,7 @@ class _EmptySchedule extends StatelessWidget {
                   ? 'Assign chapters manually or use Auto-Schedule for weekly readings'
                   : 'The group lead will assign chapters soon',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.lightText),
+              style: const TextStyle(color: AppColors.lightText),
             ),
             if (canAssign) ...[
               const SizedBox(height: 24),
@@ -2428,15 +2429,15 @@ class _MessagesList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (messages.isEmpty) {
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.chat_bubble_outline, size: 48, color: AppColors.lightGrey),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Text('No messages yet',
                 style: TextStyle(color: AppColors.lightText, fontSize: 15)),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text('Say Sai Ram to start! 🙏',
                 style: TextStyle(color: AppColors.lightText, fontSize: 13)),
           ],
@@ -2525,7 +2526,7 @@ class _MessageBubble extends StatelessWidget {
                   border: isMe ? null : Border.all(color: AppColors.lightGrey),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 4,
                       offset: const Offset(0, 1),
                     ),
@@ -2539,7 +2540,7 @@ class _MessageBubble extends StatelessWidget {
                     if (!isMe)
                       Text(
                         message.userName,
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: AppColors.saffron),
@@ -2557,7 +2558,7 @@ class _MessageBubble extends StatelessWidget {
                       style: TextStyle(
                           fontSize: 10,
                           color: isMe
-                              ? AppColors.white.withOpacity(0.7)
+                              ? AppColors.white.withValues(alpha: 0.7)
                               : AppColors.lightText),
                     ),
                   ],
@@ -2589,7 +2590,7 @@ class _MessageInput extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(top: BorderSide(color: AppColors.lightGrey)),
       ),
@@ -2603,7 +2604,7 @@ class _MessageInput extends StatelessWidget {
               style: const TextStyle(fontSize: 15),
               decoration: InputDecoration(
                 hintText: 'Type a message...',
-                hintStyle: TextStyle(color: AppColors.lightText),
+                hintStyle: const TextStyle(color: AppColors.lightText),
                 filled: true,
                 fillColor: AppColors.cream,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -2650,17 +2651,17 @@ class _HighlightsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (highlights.isEmpty) {
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.format_quote_rounded, size: 48, color: AppColors.lightGrey),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               Text('No highlights yet',
                   style: TextStyle(color: AppColors.lightText, fontSize: 15)),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Text(
                 'Open a chapter, long-press a verse to share it here',
                 textAlign: TextAlign.center,
@@ -2726,7 +2727,7 @@ class _HighlightCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.saffron.withOpacity(0.18)),
+        border: Border.all(color: AppColors.saffron.withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2735,7 +2736,7 @@ class _HighlightCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
             decoration: BoxDecoration(
-              color: AppColors.saffron.withOpacity(0.06),
+              color: AppColors.saffron.withValues(alpha: 0.06),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             ),
             child: Row(
@@ -2756,7 +2757,7 @@ class _HighlightCard extends StatelessWidget {
                     children: [
                       Text(
                         'Chapter ${highlight.chapterNumber ?? highlight.chapterId}',
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontSize: 11,
                             color: AppColors.saffron,
                             fontWeight: FontWeight.w600),
@@ -2764,7 +2765,7 @@ class _HighlightCard extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         '"${highlight.highlightedText}"',
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontSize: 13,
                             fontStyle: FontStyle.italic,
                             color: AppColors.mediumText),
@@ -2794,7 +2795,7 @@ class _HighlightCard extends StatelessWidget {
                     if (isMe)
                       GestureDetector(
                         onTap: onDelete,
-                        child: Icon(Icons.delete_outline,
+                        child: const Icon(Icons.delete_outline,
                             size: 17, color: AppColors.lightText),
                       ),
                   ],
@@ -2825,7 +2826,7 @@ class _Avatar extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.saffron.withOpacity(0.12),
+        color: AppColors.saffron.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(size * 0.3),
       ),
       child: Center(
@@ -2860,7 +2861,7 @@ class _RoleBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
@@ -2957,7 +2958,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
           const Text('Add Member',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text('Search by name, email, or phone',
+          const Text('Search by name, email, or phone',
               style: TextStyle(color: AppColors.lightText, fontSize: 13)),
           const SizedBox(height: 16),
           TextField(
@@ -2987,9 +2988,9 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
             ),
             child: _results.isEmpty
                 ? (_controller.text.length >= 2
-                    ? Center(
+                    ? const Center(
                         child: Padding(
-                          padding: const EdgeInsets.all(24),
+                          padding: EdgeInsets.all(24),
                           child: Text('No users found',
                               style: TextStyle(color: AppColors.lightText)),
                         ),
@@ -3002,20 +3003,20 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                       final user = _results[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: AppColors.saffron.withOpacity(0.15),
+                          backgroundColor: AppColors.saffron.withValues(alpha: 0.15),
                           child: Text(
                             (user['name'] as String? ?? '?')[0].toUpperCase(),
-                            style: TextStyle(
+                            style: const TextStyle(
                                 color: AppColors.saffron, fontWeight: FontWeight.w600),
                           ),
                         ),
                         title: Text(user['name'] as String? ?? 'Unknown'),
                         subtitle: Text(
                           user['email'] as String? ?? user['phone_number'] as String? ?? '',
-                          style: TextStyle(fontSize: 12, color: AppColors.lightText),
+                          style: const TextStyle(fontSize: 12, color: AppColors.lightText),
                         ),
                         trailing: IconButton(
-                          icon: Icon(Icons.person_add, color: AppColors.saffron),
+                          icon: const Icon(Icons.person_add, color: AppColors.saffron),
                           onPressed: () => _addUser(user),
                         ),
                       );

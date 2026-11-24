@@ -207,7 +207,6 @@ class FirebaseSchedulingController extends StateNotifier<FirebaseSchedulingState
 
 final firebaseSchedulingProvider = StateNotifierProvider.autoDispose.family<
   FirebaseSchedulingController, FirebaseSchedulingState, FirebaseScheduleBinding>((ref, binding) {
-  ref.listenSelf((previous, next) => reconcileFirebaseDeviceReminders(ref, busy: next.busy));
   final sessionBinding = ref.watch(firebaseSessionProvider.select((s) => (s.ready, s.user?.uid)));
   final auth = ref.watch(firebaseAuthGatewayProvider);
   var active = true; ref.onDispose(() => active = false);
@@ -219,7 +218,7 @@ final firebaseSchedulingProvider = StateNotifierProvider.autoDispose.family<
   final scope = (uid: binding.uid, groupId: binding.groupId);
   // Do not initialize other SDK dependencies under an unready binding.
   if (current()) ref.listen(firebaseGroupsProvider(scope), (_, __) {});
-  return FirebaseSchedulingController(binding, () => ref.read(firebaseSchedulingGatewayProvider), current,
+  final controller = FirebaseSchedulingController(binding, () => ref.read(firebaseSchedulingGatewayProvider), current,
     () {
       ref.invalidate(firebaseGroupsProvider((uid: binding.uid, groupId: null)));
       ref.invalidate(firebaseAssignmentsProvider);
@@ -231,4 +230,8 @@ final firebaseSchedulingProvider = StateNotifierProvider.autoDispose.family<
       final groups = ref.read(firebaseGroupsProvider(scope));
       return groups.error ?? (groups.detail == null ? 'Group reload unavailable.' : null);
     });
+  controller.addListener(
+      (next) => reconcileFirebaseDeviceReminders(ref, busy: next.busy),
+      fireImmediately: false);
+  return controller;
 });

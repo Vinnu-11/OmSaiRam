@@ -87,12 +87,12 @@ class _AartiSection extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color:
-              isOpen ? AppColors.saffron.withOpacity(0.4) : AppColors.lightGrey,
+              isOpen ? AppColors.saffron.withValues(alpha: 0.4) : AppColors.lightGrey,
           width: isOpen ? 1.5 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -112,10 +112,10 @@ class _AartiSection extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: AppColors.saffron.withOpacity(0.10),
+                      color: AppColors.saffron.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.music_note_rounded,
+                    child: const Icon(Icons.music_note_rounded,
                         color: AppColors.saffron, size: 22),
                   ),
                   const SizedBox(width: 14),
@@ -210,7 +210,7 @@ class _TrackTile extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: isActive
                     ? AppColors.saffron
-                    : AppColors.saffron.withOpacity(0.10),
+                    : AppColors.saffron.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: isLoading

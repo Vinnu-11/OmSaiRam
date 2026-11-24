@@ -231,7 +231,7 @@ class _LiveDarshanScreenState extends ConsumerState<LiveDarshanScreen> {
                     Text(
                       'Loading Live Darshan...',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withValues(alpha: 0.8),
                         fontSize: 14,
                       ),
                     ),
@@ -299,7 +299,7 @@ class _FallbackView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.saffron.withOpacity(0.12),
+                  color: AppColors.saffron.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: AppColors.saffron, size: 48),
@@ -318,7 +318,7 @@ class _FallbackView extends StatelessWidget {
                 message,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                  color: Colors.white.withValues(alpha: 0.6),
                   fontSize: 13,
                   height: 1.6,
                 ),
@@ -342,7 +342,7 @@ class _FallbackView extends StatelessWidget {
                 label: const Text('Watch in Browser'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                   minimumSize: const Size(200, 46),
                 ),
               ),

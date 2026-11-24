@@ -39,7 +39,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       body: widget.child,
       drawer: _AppDrawer(tr: tr, isLoggedIn: isLoggedIn, userName: userName),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           border: Border(
             top: BorderSide(color: AppColors.lightGrey, width: 1),
           ),

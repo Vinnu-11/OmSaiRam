@@ -91,7 +91,6 @@ class FirebaseRemindersController extends StateNotifier<FirebaseRemindersState> 
 
 final firebaseRemindersProvider = StateNotifierProvider.autoDispose.family<
     FirebaseRemindersController, FirebaseRemindersState, String>((ref, uid) {
-  ref.listenSelf((previous, next) => reconcileFirebaseDeviceReminders(ref, busy: next.busy));
   final binding = ref.watch(firebaseSessionProvider.select((s) => (s.ready, s.user?.uid)));
   final auth = ref.watch(firebaseAuthGatewayProvider);
   var active = true;
@@ -101,5 +100,10 @@ final firebaseRemindersProvider = StateNotifierProvider.autoDispose.family<
     return active && binding.$1 && binding.$2 == uid && session.ready &&
       session.user?.uid == uid && auth.currentUser?.uid == uid;
   }
-  return FirebaseRemindersController(uid, () => ref.read(firebaseRemindersGatewayProvider), current);
+  final controller = FirebaseRemindersController(
+      uid, () => ref.read(firebaseRemindersGatewayProvider), current);
+  controller.addListener(
+      (next) => reconcileFirebaseDeviceReminders(ref, busy: next.busy),
+      fireImmediately: false);
+  return controller;
 });

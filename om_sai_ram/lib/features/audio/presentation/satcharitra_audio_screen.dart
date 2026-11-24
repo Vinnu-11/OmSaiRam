@@ -159,8 +159,8 @@ class _ChapterTile extends ConsumerWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     color: isActive
-                        ? AppColors.saffron.withOpacity(0.18)
-                        : AppColors.saffron.withOpacity(0.10),
+                        ? AppColors.saffron.withValues(alpha: 0.18)
+                        : AppColors.saffron.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
@@ -194,7 +194,7 @@ class _ChapterTile extends ConsumerWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: AppColors.saffron.withOpacity(0.10),
+                      color: AppColors.saffron.withValues(alpha: 0.10),
                       shape: BoxShape.circle,
                     ),
                     child: isLoading
@@ -324,10 +324,10 @@ class ChapterAudioPlayer extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.lightGrey)),
+        border: const Border(top: BorderSide(color: AppColors.lightGrey)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -346,7 +346,7 @@ class ChapterAudioPlayer extends ConsumerWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.saffron.withOpacity(0.12),
+                  color: AppColors.saffron.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.headphones_rounded,
@@ -429,7 +429,7 @@ class ChapterAudioPlayer extends ConsumerWidget {
                 activeTrackColor: AppColors.saffron,
                 inactiveTrackColor: AppColors.lightGrey,
                 thumbColor: AppColors.saffron,
-                overlayColor: AppColors.saffron.withOpacity(0.15),
+                overlayColor: AppColors.saffron.withValues(alpha: 0.15),
               ),
               child: Slider(
                 value: sliderVal,

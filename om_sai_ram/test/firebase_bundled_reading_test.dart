@@ -241,8 +241,9 @@ void main() {
         expect(chapter.covers(n), isTrue, reason: '${language.code}/$n');
         expect(chapter.content.trim(), isNotEmpty);
         expect(chapter.sourceSegments, isEmpty);
-        if (language != AppLanguage.marathi && n == 50)
+        if (language != AppLanguage.marathi && n == 50) {
           expect(chapter.language, 'mr');
+        }
       }
     }
     final repo = ContentRepository.bundledOnly();

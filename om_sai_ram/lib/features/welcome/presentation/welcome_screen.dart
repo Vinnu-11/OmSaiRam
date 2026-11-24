@@ -89,22 +89,22 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   const Spacer(flex: 1),
 
                   // Feature highlights
-                  _FeatureRow(
+                  const _FeatureRow(
                     icon: Icons.auto_stories_outlined,
                     text: 'Read all 53 chapters anytime',
                   ),
                   const SizedBox(height: 14),
-                  _FeatureRow(
+                  const _FeatureRow(
                     icon: Icons.headphones_outlined,
                     text: 'Listen & download Aarti and Satcharitra',
                   ),
                   const SizedBox(height: 14),
-                  _FeatureRow(
+                  const _FeatureRow(
                     icon: Icons.live_tv_outlined,
                     text: 'Watch Live Darshan from Shirdi',
                   ),
                   const SizedBox(height: 14),
-                  _FeatureRow(
+                  const _FeatureRow(
                     icon: Icons.group_outlined,
                     text: 'Organize group Parayana readings',
                   ),
@@ -145,7 +145,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       label: const Text('Listen to Aarti & Audio'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.deepOrange,
-                        side: BorderSide(color: AppColors.deepOrange.withOpacity(0.5)),
+                        side: BorderSide(color: AppColors.deepOrange.withValues(alpha: 0.5)),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -169,7 +169,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       label: const Text('Sign In for Group Reading'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.saffron,
-                        side: BorderSide(color: AppColors.saffron.withOpacity(0.5)),
+                        side: BorderSide(color: AppColors.saffron.withValues(alpha: 0.5)),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -208,7 +208,7 @@ class _FeatureRow extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: AppColors.saffron.withOpacity(0.08),
+            color: AppColors.saffron.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: AppColors.saffron, size: 20),
@@ -217,7 +217,7 @@ class _FeatureRow extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               color: AppColors.darkText,
               fontWeight: FontWeight.w500,

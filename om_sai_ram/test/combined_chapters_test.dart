@@ -28,7 +28,7 @@ void main() {
   });
 
   test('assignment and preview labels include combined ranges', () {
-    final assignment = Assignment.fromJson({
+    final assignment = Assignment.fromJson(const {
       'id': 'assignment', 'group_id': 'group', 'user_id': 'user',
       'chapter_id': 16, 'chapter_number': 16,
       'assigned_at': '2026-10-13T00:00:00',

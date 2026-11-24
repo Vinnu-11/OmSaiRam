@@ -1,9 +1,8 @@
 // Web-specific implementation for Live Darshan iframe embedding.
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/widgets.dart';
+import 'package:web/web.dart' as web;
 
 bool _registered = false;
 
@@ -13,7 +12,7 @@ Widget buildIframe(String url, {Key? key}) {
   if (!_registered) {
     _registered = true;
     ui_web.platformViewRegistry.registerViewFactory(viewType, (int viewId, {Object? params}) {
-      final iframe = html.IFrameElement()
+      final iframe = web.HTMLIFrameElement()
         ..src = params as String
         ..style.border = 'none'
         ..style.width = '100%'

@@ -75,8 +75,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.saffron.withOpacity(0.08),
-                    AppColors.saffron.withOpacity(0.02),
+                    AppColors.saffron.withValues(alpha: 0.08),
+                    AppColors.saffron.withValues(alpha: 0.02),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -123,17 +123,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.deepOrange.withOpacity(0.25)),
+                  border: Border.all(color: AppColors.deepOrange.withValues(alpha: 0.25)),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppColors.deepOrange.withOpacity(0.10),
+                        color: AppColors.deepOrange.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.celebration_rounded,
+                      child: const Icon(Icons.celebration_rounded,
                           color: AppColors.deepOrange, size: 20),
                     ),
                     const SizedBox(width: 12),
@@ -151,7 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                           Text(
                             tr.upcomingEventsSubtitle,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.lightText,
                             ),
@@ -159,7 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ],
                       ),
                     ),
-                    Icon(Icons.arrow_forward_ios,
+                    const Icon(Icons.arrow_forward_ios,
                         size: 14, color: AppColors.deepOrange),
                   ],
                 ),
@@ -217,19 +217,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                   decoration: BoxDecoration(
-                    color: AppColors.saffron.withOpacity(0.08),
+                    color: AppColors.saffron.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.saffron.withOpacity(0.3)),
+                    border: Border.all(color: AppColors.saffron.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.saffron.withOpacity(0.12),
+                          color: AppColors.saffron.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.play_circle_rounded, color: AppColors.saffron, size: 20),
+                        child: const Icon(Icons.play_circle_rounded, color: AppColors.saffron, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -246,12 +246,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                             Text(
                               'Chapter ${readingProgress.resumeChapter} · ${(readingProgress.resumePosition * 100).toStringAsFixed(0)}% complete',
-                              style: TextStyle(fontSize: 12, color: AppColors.mediumText),
+                              style: const TextStyle(fontSize: 12, color: AppColors.mediumText),
                             ),
                           ],
                         ),
                       ),
-                      Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.saffron),
+                      const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.saffron),
                     ],
                   ),
                 ),
@@ -310,7 +310,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 child: Column(
                   children: [
-                    Icon(Icons.group_outlined, size: 36, color: AppColors.saffron),
+                    const Icon(Icons.group_outlined, size: 36, color: AppColors.saffron),
                     const SizedBox(height: 12),
                     Text(
                       'Sign in for Group Reading',
@@ -319,7 +319,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                     ),
                     const SizedBox(height: 6),
-                    Text(
+                    const Text(
                       'Create or join a group to read together',
                       style: TextStyle(color: AppColors.lightText, fontSize: 13),
                     ),
@@ -380,10 +380,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: AppColors.saffron.withOpacity(0.08),
+                        color: AppColors.saffron.withValues(alpha: 0.08),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.group_outlined,
                         size: 40,
                         color: AppColors.saffron,
@@ -424,7 +424,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: AppColors.saffron.withOpacity(0.1),
+                            color: AppColors.saffron.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
@@ -439,12 +439,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         subtitle: Text(
                           '${group.memberCount} members',
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AppColors.lightText,
                             fontSize: 13,
                           ),
                         ),
-                        trailing: Icon(
+                        trailing: const Icon(
                           Icons.chevron_right,
                           color: AppColors.mediumText,
                         ),
@@ -457,7 +457,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ], // end else (logged-in groups section)
 
             // Daily quote
-            _DailyQuoteCard(),
+            const _DailyQuoteCard(),
 
             const SizedBox(height: 16),
           ],
@@ -480,24 +480,24 @@ class _DailyQuoteCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.saffron.withOpacity(0.06),
-            AppColors.deepOrange.withOpacity(0.03),
+            AppColors.saffron.withValues(alpha: 0.06),
+            AppColors.deepOrange.withValues(alpha: 0.03),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.saffron.withOpacity(0.15)),
+        border: Border.all(color: AppColors.saffron.withValues(alpha: 0.15)),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.saffron.withOpacity(0.1),
+              color: AppColors.saffron.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.format_quote_rounded,
+            child: const Icon(Icons.format_quote_rounded,
                 color: AppColors.saffron, size: 24),
           ),
           const SizedBox(height: 16),
@@ -546,11 +546,11 @@ class _StatCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       decoration: BoxDecoration(
         color: highlight
-            ? Colors.amber.withOpacity(0.08)
+            ? Colors.amber.withValues(alpha: 0.08)
             : Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: highlight ? Colors.amber.withOpacity(0.5) : AppColors.lightGrey,
+          color: highlight ? Colors.amber.withValues(alpha: 0.5) : AppColors.lightGrey,
           width: highlight ? 1.5 : 1.0,
         ),
       ),
@@ -568,7 +568,7 @@ class _StatCard extends StatelessWidget {
           ),
           Text(
             label,
-            style: TextStyle(fontSize: 10, color: AppColors.lightText),
+            style: const TextStyle(fontSize: 10, color: AppColors.lightText),
             textAlign: TextAlign.center,
           ),
           if (highlight) ...[
@@ -576,7 +576,7 @@ class _StatCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.amber.withOpacity(0.2),
+                color: Colors.amber.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Text(
@@ -623,7 +623,7 @@ class _QuickActionCard extends StatelessWidget {
             border: Border.all(color: AppColors.lightGrey),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.06),
+                color: color.withValues(alpha: 0.06),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -635,7 +635,7 @@ class _QuickActionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(icon, size: 28, color: color),
@@ -643,7 +643,7 @@ class _QuickActionCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 label,
-                style: TextStyle(
+                style: const TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                   color: AppColors.darkText,

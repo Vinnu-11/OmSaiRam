@@ -92,7 +92,6 @@ class FirebaseMembershipController extends StateNotifier<FirebaseMembershipState
 
 final firebaseMembershipProvider = StateNotifierProvider.autoDispose.family<
     FirebaseMembershipController, FirebaseMembershipState, FirebaseMembershipBinding>((ref, binding) {
-  ref.listenSelf((previous, next) => reconcileFirebaseDeviceReminders(ref, busy: next.busy));
   final sessionBinding = ref.watch(firebaseSessionProvider.select((s) => (s.ready, s.user?.uid)));
   final auth = ref.watch(firebaseAuthGatewayProvider);
   var active = true;
@@ -100,7 +99,7 @@ final firebaseMembershipProvider = StateNotifierProvider.autoDispose.family<
   bool current() => active && sessionBinding.$1 && sessionBinding.$2 == binding.uid &&
       auth.currentUser?.uid == binding.uid;
   final groupScope = (uid: binding.uid, groupId: binding.groupId);
-  return FirebaseMembershipController(
+  final controller = FirebaseMembershipController(
     () => ref.read(firebaseMembershipGatewayProvider), binding, current,
     () => ref.read(firebaseGroupsProvider(groupScope).notifier).clearForDeparture(),
     () {
@@ -122,4 +121,8 @@ final firebaseMembershipProvider = StateNotifierProvider.autoDispose.family<
       await controller.refresh();
       return current() ? ref.read(firebaseGroupsProvider(groupScope)).error : 'Account changed.';
     });
+  controller.addListener(
+      (next) => reconcileFirebaseDeviceReminders(ref, busy: next.busy),
+      fireImmediately: false);
+  return controller;
 });

@@ -124,7 +124,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                       icon: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.lightGrey.withOpacity(0.5),
+                          color: AppColors.lightGrey.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(Icons.arrow_back_ios_new, size: 18),
@@ -198,7 +198,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                             hintText: tr.mobileNumberHint,
                             prefixIcon: const Icon(Icons.phone_outlined),
                             suffixText: 'Optional',
-                            suffixStyle: TextStyle(
+                            suffixStyle: const TextStyle(
                                 fontSize: 12, color: AppColors.lightText),
                           ),
                         ),
@@ -294,7 +294,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                         onTap: () => context.go(AppRoutes.login),
                         child: Text(
                           tr.login,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AppColors.saffron,
                             fontWeight: FontWeight.w600,
                           ),

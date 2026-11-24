@@ -61,10 +61,11 @@ class _ProgressWorkspaceState extends ConsumerState<_ProgressWorkspace> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted)
+      if (mounted) {
         ref
             .read(firebaseGroupProgressProvider(widget.binding).notifier)
             .refresh();
+      }
     });
   }
 
@@ -111,14 +112,16 @@ class _ProgressWorkspaceState extends ConsumerState<_ProgressWorkspace> {
       await ref
           .read(firebaseChatGatewayProvider)
           .send(widget.binding.groupId, message);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(ref.gtr('reminderSent'))));
+      }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() => _sendError = error is FormatException
             ? error.message
             : 'The reminder could not be sent. Check your connection and try again.');
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -187,8 +190,9 @@ class _ProgressWorkspaceState extends ConsumerState<_ProgressWorkspace> {
                                 onPressed: state.busy
                                     ? null
                                     : () {
-                                        if (!_form.currentState!.validate())
+                                        if (!_form.currentState!.validate()) {
                                           return;
+                                        }
                                         final week = int.parse(_week.text);
                                         if (week == widget.binding.week) {
                                           controller.refresh(restart: true);

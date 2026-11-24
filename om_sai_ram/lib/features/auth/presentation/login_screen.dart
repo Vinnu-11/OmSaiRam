@@ -178,7 +178,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             width: 88,
                             height: 88,
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
+                              gradient: const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
@@ -189,7 +189,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.saffron.withOpacity(0.3),
+                                  color: AppColors.saffron.withValues(alpha: 0.3),
                                   blurRadius: 20,
                                   offset: const Offset(0, 8),
                                 ),
@@ -306,23 +306,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 14, vertical: 12),
                                       decoration: BoxDecoration(
-                                        color: AppColors.error.withOpacity(0.1),
+                                        color: AppColors.error.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(10),
                                         border: Border.all(
-                                          color: AppColors.error.withOpacity(0.3),
+                                          color: AppColors.error.withValues(alpha: 0.3),
                                         ),
                                       ),
                                       child: Row(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Icon(Icons.error_outline_rounded,
+                                          const Icon(Icons.error_outline_rounded,
                                               color: AppColors.error, size: 20),
                                           const SizedBox(width: 10),
                                           Expanded(
                                             child: Text(
                                               _inlineError!,
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 color: AppColors.error,
                                                 fontSize: 13,
                                                 height: 1.4,
@@ -363,18 +363,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     // Divider with "Or continue with"
                     Row(
                       children: [
-                        Expanded(child: Divider(color: AppColors.lightGrey)),
+                        const Expanded(child: Divider(color: AppColors.lightGrey)),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
                             tr.orContinueWith,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AppColors.lightText,
                               fontSize: 13,
                             ),
                           ),
                         ),
-                        Expanded(child: Divider(color: AppColors.lightGrey)),
+                        const Expanded(child: Divider(color: AppColors.lightGrey)),
                       ],
                     ),
 
@@ -415,7 +415,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       children: [
                         Text(
                           tr.dontHaveAccount,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AppColors.mediumText,
                             fontSize: 14,
                           ),
@@ -424,7 +424,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           onTap: () => context.go(AppRoutes.signup),
                           child: Text(
                             tr.signup,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AppColors.saffron,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,

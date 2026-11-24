@@ -29,7 +29,7 @@ class SocialLoginButton extends StatelessWidget {
         label: Text(label),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.darkText,
-          side: BorderSide(color: AppColors.lightGrey),
+          side: const BorderSide(color: AppColors.lightGrey),
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

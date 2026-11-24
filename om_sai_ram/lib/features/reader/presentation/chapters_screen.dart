@@ -109,10 +109,10 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.saffron.withOpacity(0.08),
+                  color: AppColors.saffron.withValues(alpha: 0.08),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.auto_stories_outlined,
                   size: 48,
                   color: AppColors.saffron,
@@ -153,10 +153,10 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off_rounded, size: 48, color: AppColors.lightText),
+            const Icon(Icons.search_off_rounded, size: 48, color: AppColors.lightText),
             const SizedBox(height: 12),
             Text('No chapters match "$_searchQuery"',
-                style: TextStyle(color: AppColors.lightText)),
+                style: const TextStyle(color: AppColors.lightText)),
           ],
         ),
       );
@@ -173,10 +173,10 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.saffron.withOpacity(0.1),
+                    color: AppColors.saffron.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.auto_stories_rounded, color: AppColors.saffron, size: 20),
+                  child: const Icon(Icons.auto_stories_rounded, color: AppColors.saffron, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Column(
@@ -188,7 +188,7 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
                     ),
                     Text(
                       '${AppConstants.totalChapters} chapters · ${progress.completedChapters.length} completed',
-                      style: TextStyle(color: AppColors.lightText, fontSize: 13),
+                      style: const TextStyle(color: AppColors.lightText, fontSize: 13),
                     ),
                   ],
                 ),
@@ -212,12 +212,12 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
                     color: isCompleted
-                        ? AppColors.success.withOpacity(0.04)
+                        ? AppColors.success.withValues(alpha: 0.04)
                         : Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isCompleted
-                          ? AppColors.success.withOpacity(0.25)
+                          ? AppColors.success.withValues(alpha: 0.25)
                           : AppColors.lightGrey,
                     ),
                   ),
@@ -228,13 +228,13 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
                       height: 42,
                       decoration: BoxDecoration(
                         color: isCompleted
-                            ? AppColors.success.withOpacity(0.12)
-                            : AppColors.saffron.withOpacity(0.08),
+                            ? AppColors.success.withValues(alpha: 0.12)
+                            : AppColors.saffron.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(11),
                       ),
                       child: Center(
                         child: isCompleted
-                            ? Icon(Icons.check_rounded, color: AppColors.success, size: 20)
+                            ? const Icon(Icons.check_rounded, color: AppColors.success, size: 20)
                             : Text(
                                 chapter.chapterLabel ?? '${chapter.number}',
                                 style: TextStyle(
@@ -258,7 +258,7 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
                     subtitle: isResume
                         ? Text(
                             '${(progress.resumePosition * 100).toStringAsFixed(0)}% read · tap to continue',
-                            style: TextStyle(fontSize: 11, color: AppColors.saffron),
+                            style: const TextStyle(fontSize: 11, color: AppColors.saffron),
                           )
                         : null,
                     trailing: Row(
@@ -267,7 +267,7 @@ class _ChaptersScreenState extends ConsumerState<ChaptersScreen> {
                         if (isBookmarked)
                           Icon(Icons.bookmark_rounded, color: Colors.indigo.shade300, size: 16),
                         const SizedBox(width: 4),
-                        Icon(Icons.chevron_right, color: AppColors.lightText, size: 20),
+                        const Icon(Icons.chevron_right, color: AppColors.lightText, size: 20),
                       ],
                     ),
                     onTap: () => context.go('/reader/${chapter.number}'),
@@ -298,18 +298,18 @@ class _ReaderLanguageToggle extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: AppColors.saffron.withOpacity(0.1),
+          color: AppColors.saffron.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.saffron.withOpacity(0.3)),
+          border: Border.all(color: AppColors.saffron.withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.translate_rounded, size: 15, color: AppColors.saffron),
+            const Icon(Icons.translate_rounded, size: 15, color: AppColors.saffron),
             const SizedBox(width: 4),
             Text(
               current.code.toUpperCase(),
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: AppColors.saffron,
@@ -405,10 +405,10 @@ class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: AppColors.saffron.withOpacity(0.12),
+                        color: AppColors.saffron.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.translate_rounded,
+                      child: const Icon(Icons.translate_rounded,
                           color: AppColors.saffron, size: 20),
                     ),
                     const SizedBox(width: 12),
@@ -424,7 +424,7 @@ class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 2),
-                          Text(
+                          const Text(
                             'Choose the language for the Satcharita text',
                             style: TextStyle(
                                 fontSize: 12, color: AppColors.lightText),
@@ -437,10 +437,10 @@ class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
                       icon: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: AppColors.lightGrey.withOpacity(0.5),
+                          color: AppColors.lightGrey.withValues(alpha: 0.5),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(Icons.close_rounded,
+                        child: const Icon(Icons.close_rounded,
                             size: 18, color: AppColors.mediumText),
                       ),
                     ),
@@ -469,16 +469,16 @@ class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
                     fillColor: AppColors.white,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.lightGrey),
+                      borderSide: const BorderSide(color: AppColors.lightGrey),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.lightGrey),
+                      borderSide: const BorderSide(color: AppColors.lightGrey),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide:
-                          BorderSide(color: AppColors.saffron, width: 1.5),
+                          const BorderSide(color: AppColors.saffron, width: 1.5),
                     ),
                   ),
                 ),
@@ -513,19 +513,19 @@ class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
                             horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(
                           color: selected
-                              ? AppColors.saffron.withOpacity(0.08)
+                              ? AppColors.saffron.withValues(alpha: 0.08)
                               : AppColors.white,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: selected
                                 ? AppColors.saffron
-                                : AppColors.lightGrey.withOpacity(0.7),
+                                : AppColors.lightGrey.withValues(alpha: 0.7),
                             width: selected ? 1.5 : 1,
                           ),
                           boxShadow: selected
                               ? [
                                   BoxShadow(
-                                    color: AppColors.saffron.withOpacity(0.1),
+                                    color: AppColors.saffron.withValues(alpha: 0.1),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   )
@@ -540,7 +540,7 @@ class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
                               height: 36,
                               decoration: BoxDecoration(
                                 color: selected
-                                    ? AppColors.saffron.withOpacity(0.15)
+                                    ? AppColors.saffron.withValues(alpha: 0.15)
                                     : AppColors.cream,
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -602,7 +602,7 @@ class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: selected
-                                            ? AppColors.saffron.withOpacity(0.7)
+                                            ? AppColors.saffron.withValues(alpha: 0.7)
                                             : AppColors.lightText,
                                       ),
                                     ),
@@ -610,7 +610,7 @@ class _ReaderLanguagePickerState extends ConsumerState<_ReaderLanguagePicker> {
                               ),
                             ),
                             if (selected)
-                              Icon(Icons.check_circle_rounded,
+                              const Icon(Icons.check_circle_rounded,
                                   color: AppColors.saffron, size: 22),
                           ],
                         ),

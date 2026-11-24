@@ -37,7 +37,9 @@ class _BundledReadingScreenState extends ConsumerState<BundledReadingScreen> {
         await ref.read(readingProgressProvider.notifier).ready;
         if (!mounted || widget.chapterNumber != '$number' ||
             ref.read(languageProvider).readerLanguage.code != language ||
-            !_scroll.hasClients) return;
+            !_scroll.hasClients) {
+          return;
+        }
         final saved = ref.read(readingProgressProvider);
         final position = saved.resumeChapter == number && saved.resumePosition.isFinite
             ? saved.resumePosition.clamp(0.0, 1.0).toDouble() : 0.0;

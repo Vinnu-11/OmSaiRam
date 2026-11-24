@@ -224,7 +224,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
             value: _scrollProgress,
             backgroundColor: Colors.transparent,
             valueColor: AlwaysStoppedAnimation<Color>(
-              AppColors.saffron.withOpacity(0.7),
+              AppColors.saffron.withValues(alpha: 0.7),
             ),
             minHeight: 3,
           ),
@@ -244,7 +244,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                const Icon(Icons.error_outline, size: 48, color: AppColors.error),
                 const SizedBox(height: 16),
                 Text(
                   'Could not load chapter',
@@ -266,7 +266,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.book_outlined, size: 48, color: AppColors.lightText),
+                  const Icon(Icons.book_outlined, size: 48, color: AppColors.lightText),
                   const SizedBox(height: 16),
                   Text(
                     'Chapter not found',
@@ -285,13 +285,13 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
               children: [
                 // Completed badge
                 if (progress.completedChapters.contains(widget.chapterId))
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.check_circle_rounded, color: AppColors.success, size: 16),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6),
                         Text(
                           'Completed',
                           style: TextStyle(
@@ -309,7 +309,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                     children: [
                       Text(
                         'Chapter ${chapter.chapterLabel ?? chapter.number}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AppColors.saffron,
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -324,7 +324,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                             width: 32,
                             height: 1.5,
                             decoration: BoxDecoration(
-                              color: AppColors.saffron.withOpacity(0.4),
+                              color: AppColors.saffron.withValues(alpha: 0.4),
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -332,7 +332,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                           Container(
                             width: 6,
                             height: 6,
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: AppColors.saffron,
                               shape: BoxShape.circle,
                             ),
@@ -342,7 +342,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
                             width: 32,
                             height: 1.5,
                             decoration: BoxDecoration(
-                              color: AppColors.saffron.withOpacity(0.4),
+                              color: AppColors.saffron.withValues(alpha: 0.4),
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
@@ -507,7 +507,7 @@ class _ChapterReaderScreenState extends ConsumerState<ChapterReaderScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(notesLabel,
-                    style: TextStyle(
+                    style: const TextStyle(
                         fontSize: 12,
                         color: AppColors.lightText,
                         fontWeight: FontWeight.w500)),
@@ -671,12 +671,12 @@ class _ParagraphWithFootnoteLinks extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
             decoration: BoxDecoration(
-              color: AppColors.saffron.withOpacity(0.12),
+              color: AppColors.saffron.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
               '$num',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: AppColors.saffron,
@@ -757,19 +757,19 @@ class _ShareHighlightSheetState extends ConsumerState<_ShareHighlightSheet> {
           ),
           const SizedBox(height: 4),
           Text(tr.longPressHint,
-              style: TextStyle(fontSize: 12, color: AppColors.lightText)),
+              style: const TextStyle(fontSize: 12, color: AppColors.lightText)),
           const SizedBox(height: 14),
           // Highlighted text preview
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.saffron.withOpacity(0.06),
+              color: AppColors.saffron.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
-              border: Border(left: BorderSide(color: AppColors.saffron, width: 3)),
+              border: const Border(left: BorderSide(color: AppColors.saffron, width: 3)),
             ),
             child: Text(
               '"${widget.highlightedText}"',
-              style: TextStyle(
+              style: const TextStyle(
                   fontStyle: FontStyle.italic,
                   color: AppColors.mediumText,
                   fontSize: 13,
@@ -781,10 +781,10 @@ class _ShareHighlightSheetState extends ConsumerState<_ShareHighlightSheet> {
           const SizedBox(height: 14),
           // Group picker
           if (groups.groups.isEmpty)
-            Text('You are not in any group yet.',
+            const Text('You are not in any group yet.',
                 style: TextStyle(color: AppColors.lightText))
           else ...[
-            Text('Share with:', style: const TextStyle(fontWeight: FontWeight.w600)),
+            const Text('Share with:', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -800,7 +800,7 @@ class _ShareHighlightSheetState extends ConsumerState<_ShareHighlightSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppColors.saffron.withOpacity(0.1)
+                          ? AppColors.saffron.withValues(alpha: 0.1)
                           : AppColors.cream,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
@@ -827,7 +827,7 @@ class _ShareHighlightSheetState extends ConsumerState<_ShareHighlightSheet> {
             maxLines: 4,
             decoration: InputDecoration(
               hintText: 'Add your thought or reflection…',
-              hintStyle: TextStyle(color: AppColors.lightText, fontSize: 14),
+              hintStyle: const TextStyle(color: AppColors.lightText, fontSize: 14),
               filled: true,
               fillColor: AppColors.cream,
               contentPadding:
@@ -963,7 +963,7 @@ class _CompletionSheet extends StatelessWidget {
           Text(
             tr.notifyGroup,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               color: AppColors.lightText,
             ),
@@ -976,12 +976,12 @@ class _CompletionSheet extends StatelessWidget {
                   onPressed: onLater,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(color: AppColors.lightGrey),
+                    side: const BorderSide(color: AppColors.lightGrey),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text(tr.later,
-                      style: TextStyle(color: AppColors.mediumText, fontWeight: FontWeight.w600)),
+                      style: const TextStyle(color: AppColors.mediumText, fontWeight: FontWeight.w600)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1095,10 +1095,10 @@ class _MiniAudioPlayer extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.lightGrey)),
+        border: const Border(top: BorderSide(color: AppColors.lightGrey)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -1115,10 +1115,10 @@ class _MiniAudioPlayer extends ConsumerWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.saffron.withOpacity(0.12),
+                  color: AppColors.saffron.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(Icons.headphones_rounded,
+                child: const Icon(Icons.headphones_rounded,
                     color: AppColors.saffron, size: 18),
               ),
               const SizedBox(width: 10),
@@ -1138,11 +1138,11 @@ class _MiniAudioPlayer extends ConsumerWidget {
                     if (isDownloading && audioState.downloadProgress != null)
                       Text(
                         'Downloading… ${(audioState.downloadProgress! * 100).toStringAsFixed(0)}%',
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontSize: 11, color: AppColors.mediumText),
                       )
                     else if (isBuffering)
-                      Text(
+                      const Text(
                         'Loading audio…',
                         style: TextStyle(
                             fontSize: 11, color: AppColors.mediumText),
@@ -1150,7 +1150,7 @@ class _MiniAudioPlayer extends ConsumerWidget {
                     else
                       Text(
                         '${_fmt(position)}  /  ${_fmt(total)}',
-                        style: TextStyle(
+                        style: const TextStyle(
                             fontSize: 11, color: AppColors.mediumText),
                       ),
                   ],
@@ -1180,7 +1180,7 @@ class _MiniAudioPlayer extends ConsumerWidget {
                 ),
               // Stop / close button
               IconButton(
-                icon: Icon(Icons.close_rounded,
+                icon: const Icon(Icons.close_rounded,
                     size: 20, color: AppColors.mediumText),
                 padding: EdgeInsets.zero,
                 onPressed: () => notifier.stop(),
@@ -1199,7 +1199,7 @@ class _MiniAudioPlayer extends ConsumerWidget {
                 activeTrackColor: AppColors.saffron,
                 inactiveTrackColor: AppColors.lightGrey,
                 thumbColor: AppColors.saffron,
-                overlayColor: AppColors.saffron.withOpacity(0.15),
+                overlayColor: AppColors.saffron.withValues(alpha: 0.15),
               ),
               child: Slider(
                 value: sliderVal,
@@ -1234,13 +1234,13 @@ class _FootnoteEntry extends StatelessWidget {
             height: 22,
             margin: const EdgeInsets.only(top: 1, right: 10),
             decoration: BoxDecoration(
-              color: AppColors.saffron.withOpacity(0.12),
+              color: AppColors.saffron.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(4),
             ),
             alignment: Alignment.center,
             child: Text(
               '$number',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: AppColors.saffron,
@@ -1250,7 +1250,7 @@ class _FootnoteEntry extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
                 height: 1.6,
                 color: AppColors.mediumText,

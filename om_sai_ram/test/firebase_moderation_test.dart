@@ -71,8 +71,9 @@ class FakeModeration implements FirebaseModerationGateway {
   }
 
   void _admin() {
-    if (actualRole != FirebaseGroupRole.admin)
+    if (actualRole != FirebaseGroupRole.admin) {
       throw const FormatException('Current group admin membership required.');
+    }
   }
 
   @override
@@ -321,10 +322,11 @@ void main() {
                     ? FirebaseChatScreen(groupId: groupId)
                     : FirebaseModerationScreen(
                         groupId: groupId, messageId: messageId))));
-    if (routed)
+    if (routed) {
       container
           .read(routerProvider)
           .go(chatScreen ? '/groups/g/chat' : '/groups/g/moderation/z');
+    }
     if (gateway.readGate != null) {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));

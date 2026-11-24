@@ -114,7 +114,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 children: [
                   CircleAvatar(
                     radius: 48,
-                    backgroundColor: AppColors.saffron.withOpacity(0.12),
+                    backgroundColor: AppColors.saffron.withValues(alpha: 0.12),
                     child: Text(
                       initial,
                       style: const TextStyle(
@@ -191,14 +191,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.saffron.withOpacity(0.06),
+                color: AppColors.saffron.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.saffron.withOpacity(0.15)),
+                border: Border.all(color: AppColors.saffron.withValues(alpha: 0.15)),
               ),
-              child: Row(
+              child: const Row(
                 children: [
                   Icon(Icons.info_outline_rounded, color: AppColors.saffron, size: 20),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'Your name is visible to group members. Email and phone are private.',
@@ -215,7 +215,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             Center(
               child: Text(
                 'Member since ${user?.createdAt.year ?? ''}',
-                style: TextStyle(fontSize: 13, color: AppColors.lightText),
+                style: const TextStyle(fontSize: 13, color: AppColors.lightText),
               ),
             ),
           ],
@@ -236,7 +236,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AppColors.lightGrey),
+        borderSide: const BorderSide(color: AppColors.lightGrey),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),

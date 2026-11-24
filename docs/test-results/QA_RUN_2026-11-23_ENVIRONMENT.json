@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "run_id": "QA-2026-11-23-02",
-  "executed_at_utc": "2026-11-24T07:49:35Z",
+  "run_id": "QA-2026-11-23-03",
+  "executed_at_utc": "2026-11-24T08:16:19Z",
   "repository": {
-    "commit": "f109fada8d3e2c388d67e824f379f26e60f8466b",
+    "commit": "5bd1ed7",
     "working_tree_clean": false,
-    "tracked_modified": 46,
-    "untracked": 219,
+    "tracked_modified": 38,
+    "untracked": 0,
     "note": "The tested snapshot includes uncommitted work; the commit alone does not reproduce it."
   },
   "host": {
@@ -33,7 +33,7 @@
     "No physical Android device or tablet was available.",
     "No real Firebase project, SMS sender, OAuth provider, notification delivery, or production deployment was exercised.",
     "No Firefox, Safari, Edge, iOS, iPadOS, or release-hosting certification was performed.",
-    "FastAPI catalogue probes and migration smoke used isolated SQLite databases, not PostgreSQL migration or concurrency certification.",
+    "PostgreSQL 16 migration and auth-token concurrency were certified in an ephemeral container; full domain concurrency/restore coverage remains pending.",
     "Linguistic, OCR, and source-text accuracy require qualified human reviewers."
   ]
 }

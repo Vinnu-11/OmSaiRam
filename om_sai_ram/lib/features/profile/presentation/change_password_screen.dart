@@ -79,7 +79,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text('Save',
+                : const Text('Save',
                     style: TextStyle(
                         color: AppColors.saffron, fontWeight: FontWeight.w600)),
           ),

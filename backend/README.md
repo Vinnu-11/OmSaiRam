@@ -141,6 +141,6 @@ Responses include chapter number, `chapter_label` and `chapter_end_number`. One 
 
 ## Tests and release checks
 
-Run `pytest -q` from this directory in the configured Python environment. Tests include [auth](tests/test_auth.py), [groups/progress](tests/test_groups_and_progress.py) and [combined/manual scheduling](tests/test_combined_chapters.py). The existing fast suites use SQLite; use a disposable PostgreSQL environment for concurrency, migrations, FK cleanup and deployment QA.
+Run `pytest -q` from this directory in the configured Python environment. Tests include [auth](tests/test_auth.py), [groups/progress](tests/test_groups_and_progress.py) and [combined/manual scheduling](tests/test_combined_chapters.py). The existing fast suites use SQLite. On 2026-11-24, the refresh-token migration and concurrent one-time exchange were also verified against disposable PostgreSQL 16; use a disposable PostgreSQL environment for broader concurrency, restore, FK cleanup and deployment QA.
 
 See [QA cases](../docs/QA_TEST_CASES.md) for the permissions matrix, test fixtures, pass/fail criteria and missing automation targets. A green unit suite is not production certification for SMS, OAuth, notifications or external streams.

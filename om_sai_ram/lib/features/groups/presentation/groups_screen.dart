@@ -130,10 +130,10 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppColors.saffron.withOpacity(0.08),
+                color: AppColors.saffron.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.group_outlined,
                 size: 56,
                 color: AppColors.saffron,
@@ -175,10 +175,10 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.saffron.withOpacity(0.1),
+                color: AppColors.saffron.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.group_add, color: AppColors.saffron, size: 20),
+              child: const Icon(Icons.group_add, color: AppColors.saffron, size: 20),
             ),
             const SizedBox(width: 10),
             Text(tr.joinGroup),
@@ -211,7 +211,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
               final success = await ref
                   .read(groupsProvider.notifier)
                   .joinGroup(controller.text.trim());
-              if (mounted && success) {
+              if (context.mounted && success) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: const Text('Successfully joined group!'),
@@ -251,7 +251,7 @@ class _GroupCard extends StatelessWidget {
         border: Border.all(color: AppColors.lightGrey),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withValues(alpha: 0.03),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -276,8 +276,8 @@ class _GroupCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            AppColors.saffron.withOpacity(0.15),
-                            AppColors.saffron.withOpacity(0.05),
+                            AppColors.saffron.withValues(alpha: 0.15),
+                            AppColors.saffron.withValues(alpha: 0.05),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -311,14 +311,14 @@ class _GroupCard extends StatelessWidget {
                       ),
                     ),
                     // Arrow
-                    Icon(Icons.chevron_right, color: AppColors.lightText, size: 20),
+                    const Icon(Icons.chevron_right, color: AppColors.lightText, size: 20),
                   ],
                 ),
                 if (group.description != null) ...[
                   const SizedBox(height: 10),
                   Text(
                     group.description!,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.mediumText,
                       fontSize: 13,
                       height: 1.4,
@@ -331,11 +331,11 @@ class _GroupCard extends StatelessWidget {
                 // Member count
                 Row(
                   children: [
-                    Icon(Icons.people_outline, size: 15, color: AppColors.lightText),
+                    const Icon(Icons.people_outline, size: 15, color: AppColors.lightText),
                     const SizedBox(width: 4),
                     Text(
                       '${group.memberCount} ${group.memberCount == 1 ? 'member' : 'members'}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppColors.lightText,
                         fontSize: 13,
                       ),
@@ -365,7 +365,7 @@ class _ModeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(

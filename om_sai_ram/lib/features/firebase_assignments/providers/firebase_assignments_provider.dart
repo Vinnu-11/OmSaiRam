@@ -127,9 +127,6 @@ final firebaseAssignmentsProvider = StateNotifierProvider.autoDispose.family<
     FirebaseAssignmentsController,
     FirebaseAssignmentsState,
     FirebaseAssignmentsScope>((ref, scope) {
-  ref.listenSelf((previous, next) {
-    reconcileFirebaseDeviceReminders(ref, busy: next.busy);
-  });
   final binding =
       ref.watch(firebaseSessionProvider.select((s) => (s.ready, s.user?.uid)));
   final auth = ref.watch(firebaseAuthGatewayProvider);
@@ -140,9 +137,12 @@ final firebaseAssignmentsProvider = StateNotifierProvider.autoDispose.family<
         auth.currentUser?.uid == scope.uid;
   }
 
-  if (!binding.$1 || binding.$2 != scope.uid || !current()) {
-    return FirebaseAssignmentsController(null, scope, () => false);
-  }
-  return FirebaseAssignmentsController(
-      ref.watch(firebaseAssignmentsGatewayProvider), scope, current);
+  final controller = !binding.$1 || binding.$2 != scope.uid || !current()
+      ? FirebaseAssignmentsController(null, scope, () => false)
+      : FirebaseAssignmentsController(
+          ref.watch(firebaseAssignmentsGatewayProvider), scope, current);
+  controller.addListener(
+      (next) => reconcileFirebaseDeviceReminders(ref, busy: next.busy),
+      fireImmediately: false);
+  return controller;
 });

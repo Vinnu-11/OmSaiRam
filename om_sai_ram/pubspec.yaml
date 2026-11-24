@@ -62,7 +62,10 @@ dependencies:
   cloud_firestore: ^6.10.0
   html: ^0.15.7
   crypto: ^3.0.8
+  web: ^1.1.1
 
+  just_audio_platform_interface: any
+  just_audio_web: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

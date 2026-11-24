@@ -44,8 +44,8 @@ class DailyProgrammeScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.saffron.withOpacity(0.12),
-                      AppColors.saffron.withOpacity(0.04),
+                      AppColors.saffron.withValues(alpha: 0.12),
+                      AppColors.saffron.withValues(alpha: 0.04),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -57,18 +57,18 @@ class DailyProgrammeScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.saffron.withOpacity(0.15),
+                        color: AppColors.saffron.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.temple_hindu_rounded,
+                      child: const Icon(Icons.temple_hindu_rounded,
                           color: AppColors.saffron, size: 28),
                     ),
                     const SizedBox(width: 14),
-                    Expanded(
+                    const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Shree Saibaba Sansthan',
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
@@ -76,7 +76,7 @@ class DailyProgrammeScreen extends StatelessWidget {
                               color: AppColors.darkText,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          SizedBox(height: 2),
                           Text(
                             'Shirdi, Maharashtra',
                             style: TextStyle(
@@ -260,7 +260,7 @@ class _TimelineItem extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: entry.isAarti
-                        ? AppColors.saffron.withOpacity(0.3)
+                        ? AppColors.saffron.withValues(alpha: 0.3)
                         : AppColors.lightGrey,
                   ),
                 ),
@@ -284,7 +284,7 @@ class _TimelineItem extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 1),
                             decoration: BoxDecoration(
-                              color: AppColors.saffron.withOpacity(0.12),
+                              color: AppColors.saffron.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(

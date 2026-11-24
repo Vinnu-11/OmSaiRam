@@ -193,7 +193,6 @@ final firebaseGroupRemindersProvider = StateNotifierProvider.autoDispose.family<
     FirebaseGroupRemindersController,
     FirebaseGroupRemindersState,
     FirebaseGroupReminderScope>((ref, scope) {
-  ref.listenSelf((previous, next) => reconcileFirebaseDeviceReminders(ref, busy: next.busy));
   final binding = ref.watch(firebaseSessionProvider
       .select((session) => (session.ready, session.user?.uid)));
   final auth = ref.watch(firebaseAuthGatewayProvider);
@@ -209,6 +208,10 @@ final firebaseGroupRemindersProvider = StateNotifierProvider.autoDispose.family<
         auth.currentUser?.uid == scope.uid;
   }
 
-  return FirebaseGroupRemindersController(
+    final controller = FirebaseGroupRemindersController(
       scope, () => ref.read(firebaseGroupRemindersGatewayProvider), current);
+    controller.addListener(
+      (next) => reconcileFirebaseDeviceReminders(ref, busy: next.busy),
+      fireImmediately: false);
+    return controller;
 });

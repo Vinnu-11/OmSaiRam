@@ -109,10 +109,6 @@ class FirebaseGroupAdminController extends StateNotifier<FirebaseGroupAdminState
 
 final firebaseGroupAdminProvider = StateNotifierProvider.autoDispose.family<
     FirebaseGroupAdminController, FirebaseGroupAdminState, FirebaseGroupAdminBinding>((ref, binding) {
-  ref.listenSelf((previous, next) {
-    if (previous?.busy == next.busy) return;
-    reconcileFirebaseDeviceReminders(ref, busy: next.busy);
-  });
   final sessionBinding = ref.watch(firebaseSessionProvider.select((s) => (s.ready, s.user?.uid)));
   final auth = ref.watch(firebaseAuthGatewayProvider);
   var active = true;
@@ -126,7 +122,7 @@ final firebaseGroupAdminProvider = StateNotifierProvider.autoDispose.family<
   // Keep the roster controller alive across settings-route reload awaits,
   // without rebuilding this mutation controller on every roster state change.
   ref.listen(firebaseGroupsProvider(scope), (_, __) {});
-  return FirebaseGroupAdminController(binding, () => ref.read(firebaseGroupAdminGatewayProvider), current,
+  final controller = FirebaseGroupAdminController(binding, () => ref.read(firebaseGroupAdminGatewayProvider), current,
     () => ref.read(firebaseGroupsProvider(scope).notifier).clearForDeparture(),
     () {
       ref.invalidate(firebaseGroupsProvider((uid: binding.uid, groupId: null)));
@@ -145,4 +141,11 @@ final firebaseGroupAdminProvider = StateNotifierProvider.autoDispose.family<
       final state = ref.read(firebaseGroupsProvider(scope));
       return state.error ?? (state.detail == null ? 'Roster verification unavailable.' : null);
     });
+  var previousBusy = false;
+  controller.addListener((next) {
+    if (previousBusy == next.busy) return;
+    previousBusy = next.busy;
+    reconcileFirebaseDeviceReminders(ref, busy: next.busy);
+  }, fireImmediately: false);
+  return controller;
 });

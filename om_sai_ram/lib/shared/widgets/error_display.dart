@@ -29,13 +29,13 @@ class ErrorDisplay extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.08),
+                color: AppColors.error.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.error_outline_rounded,
                 size: 40,
-                color: AppColors.error.withOpacity(0.7),
+                color: AppColors.error.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 20),

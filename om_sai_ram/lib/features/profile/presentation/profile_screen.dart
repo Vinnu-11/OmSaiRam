@@ -46,8 +46,8 @@ class ProfileScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.saffron.withOpacity(0.08),
-                  AppColors.saffron.withOpacity(0.02),
+                  AppColors.saffron.withValues(alpha: 0.08),
+                  AppColors.saffron.withValues(alpha: 0.02),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -62,18 +62,18 @@ class ProfileScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: AppColors.saffron.withOpacity(0.3),
+                      color: AppColors.saffron.withValues(alpha: 0.3),
                       width: 2,
                     ),
                   ),
                   child: CircleAvatar(
                     radius: 40,
-                    backgroundColor: AppColors.saffron.withOpacity(0.12),
+                    backgroundColor: AppColors.saffron.withValues(alpha: 0.12),
                     child: Text(
                       user?.name.isNotEmpty == true
                           ? user!.name[0].toUpperCase()
                           : '?',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                         color: AppColors.saffron,
@@ -161,21 +161,21 @@ class ProfileScreen extends ConsumerWidget {
                   onTap: () => context.go(AppRoutes.editProfile),
                 ),
                 if (user?.authProvider == 'email') ...[
-                  Divider(height: 1, indent: 56, color: AppColors.lightGrey),
+                  const Divider(height: 1, indent: 56, color: AppColors.lightGrey),
                   _SettingsTile(
                     icon: Icons.lock_outline,
                     title: 'Change Password',
                     onTap: () => context.go(AppRoutes.changePassword),
                   ),
                 ],
-                Divider(height: 1, indent: 56, color: AppColors.lightGrey),
+                const Divider(height: 1, indent: 56, color: AppColors.lightGrey),
                 _SettingsTile(
                   icon: Icons.language_outlined,
                   title: tr.language,
                   subtitle: langState.appLanguage.label,
                   onTap: () => _showLanguageDialog(context, ref, langState),
                 ),
-                Divider(height: 1, indent: 56, color: AppColors.lightGrey),
+                const Divider(height: 1, indent: 56, color: AppColors.lightGrey),
                 // Dark mode toggle
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
@@ -183,7 +183,7 @@ class ProfileScreen extends ConsumerWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: AppColors.mediumText.withOpacity(0.08),
+                      color: AppColors.mediumText.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
@@ -202,10 +202,10 @@ class ProfileScreen extends ConsumerWidget {
                     value: readerSettings.darkMode,
                     onChanged: (_) =>
                         ref.read(readerSettingsProvider.notifier).toggleDarkMode(),
-                    activeColor: AppColors.saffron,
+                    activeThumbColor: AppColors.saffron,
                   ),
                 ),
-                Divider(height: 1, indent: 56, color: AppColors.lightGrey),
+                const Divider(height: 1, indent: 56, color: AppColors.lightGrey),
                 _NotificationsTile(),
               ],
             ),
@@ -239,7 +239,7 @@ class ProfileScreen extends ConsumerWidget {
                   title: tr.faq,
                   onTap: () => context.go(AppRoutes.faq),
                 ),
-                Divider(height: 1, indent: 56, color: AppColors.lightGrey),
+                const Divider(height: 1, indent: 56, color: AppColors.lightGrey),
                 _SettingsTile(
                   icon: Icons.info_outlined,
                   title: tr.about,
@@ -257,7 +257,7 @@ class ProfileScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.error.withOpacity(0.2)),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
             ),
             child: _SettingsTile(
               icon: Icons.logout_rounded,
@@ -366,10 +366,10 @@ class ProfileScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.saffron.withOpacity(0.1),
+                color: AppColors.saffron.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.auto_stories, color: AppColors.saffron, size: 20),
+              child: const Icon(Icons.auto_stories, color: AppColors.saffron, size: 20),
             ),
             const SizedBox(width: 10),
             Text(tr.appName),
@@ -437,7 +437,7 @@ class _LanguageSettingsSheetState
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.language_outlined,
+                        const Icon(Icons.language_outlined,
                             color: AppColors.saffron, size: 20),
                         const SizedBox(width: 8),
                         Text(
@@ -494,7 +494,7 @@ class _LanguageSettingsSheetState
                     Text(
                       tr.readerLanguageHint,
                       style:
-                          TextStyle(fontSize: 12, color: AppColors.lightText),
+                          const TextStyle(fontSize: 12, color: AppColors.lightText),
                     ),
                     const SizedBox(height: 10),
                     ...AppLanguage.available.map((lang) => Padding(
@@ -549,7 +549,7 @@ class _LanguageSettingsSheetState
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color:
-              selected ? AppColors.saffron.withOpacity(0.08) : AppColors.white,
+              selected ? AppColors.saffron.withValues(alpha: 0.08) : AppColors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? AppColors.saffron : AppColors.lightGrey,
@@ -577,7 +577,7 @@ class _LanguageSettingsSheetState
                           fontWeight: FontWeight.w400,
                           fontSize: 13,
                           color: selected
-                              ? AppColors.saffron.withOpacity(0.7)
+                              ? AppColors.saffron.withValues(alpha: 0.7)
                               : AppColors.lightText,
                         ),
                       ),
@@ -586,7 +586,7 @@ class _LanguageSettingsSheetState
               ),
             ),
             if (selected)
-              Icon(Icons.check_circle_rounded,
+              const Icon(Icons.check_circle_rounded,
                   color: AppColors.saffron, size: 20),
           ],
         ),
@@ -690,7 +690,7 @@ class _NotificationsTileState extends State<_NotificationsTile> {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: (_enabled ? AppColors.saffron : AppColors.mediumText).withOpacity(0.08),
+          color: (_enabled ? AppColors.saffron : AppColors.mediumText).withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
@@ -723,7 +723,7 @@ class _NotificationsTileState extends State<_NotificationsTile> {
       trailing: Switch(
         value: _enabled,
         onChanged: (_) => _toggle(),
-        activeColor: AppColors.saffron,
+        activeThumbColor: AppColors.saffron,
       ),
     );
   }
@@ -748,9 +748,9 @@ class _MiniStatCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.07),
+          color: color.withValues(alpha: 0.07),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.18)),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
         ),
         child: Column(
           children: [
@@ -759,7 +759,7 @@ class _MiniStatCard extends StatelessWidget {
             Text(value,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
             Text(label,
-                style: TextStyle(fontSize: 11, color: AppColors.lightText)),
+                style: const TextStyle(fontSize: 11, color: AppColors.lightText)),
           ],
         ),
       ),
@@ -795,7 +795,7 @@ class _SettingsTile extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: (iconColor ?? AppColors.mediumText).withOpacity(0.08),
+          color: (iconColor ?? AppColors.mediumText).withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: iconColor ?? AppColors.mediumText, size: 20),
@@ -811,11 +811,11 @@ class _SettingsTile extends StatelessWidget {
       subtitle: subtitle != null
           ? Text(
               subtitle!,
-              style: TextStyle(fontSize: 12, color: AppColors.lightText),
+              style: const TextStyle(fontSize: 12, color: AppColors.lightText),
             )
           : null,
       trailing: showChevron
-          ? Icon(Icons.chevron_right, color: AppColors.lightText, size: 20)
+          ? const Icon(Icons.chevron_right, color: AppColors.lightText, size: 20)
           : null,
       onTap: onTap,
     );

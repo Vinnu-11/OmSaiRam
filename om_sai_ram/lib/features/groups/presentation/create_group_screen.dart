@@ -165,7 +165,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
               Text('Chapters per Week',
                   style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 4),
-              Text(
+              const Text(
                 'How many chapters each member reads per week (1–53)',
                 style: TextStyle(color: AppColors.lightText, fontSize: 13),
               ),
@@ -199,12 +199,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                             vertical: 10, horizontal: 8),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: AppColors.saffron),
+                          borderSide: const BorderSide(color: AppColors.saffron),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              BorderSide(color: AppColors.saffron, width: 2),
+                              const BorderSide(color: AppColors.saffron, width: 2),
                         ),
                       ),
                       onChanged: (v) {
@@ -236,7 +236,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                   const SizedBox(width: 16),
                   Text(
                     'chapter${_chaptersPerWeek == 1 ? '' : 's'}/week',
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.lightText,
                       fontSize: 14,
                     ),
@@ -250,7 +250,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
               Text('Starting Chapter',
                   style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 4),
-              Text(
+              const Text(
                 'Which chapter the group begins reading from (1–53)',
                 style: TextStyle(color: AppColors.lightText, fontSize: 13),
               ),
@@ -284,12 +284,12 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                             vertical: 10, horizontal: 8),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: AppColors.saffron),
+                          borderSide: const BorderSide(color: AppColors.saffron),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              BorderSide(color: AppColors.saffron, width: 2),
+                              const BorderSide(color: AppColors.saffron, width: 2),
                         ),
                       ),
                       onChanged: (v) {
@@ -319,7 +319,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                         : null,
                   ),
                   const SizedBox(width: 16),
-                  Text(
+                  const Text(
                     'chapter',
                     style: TextStyle(
                       color: AppColors.lightText,
@@ -375,8 +375,8 @@ class _StepperButton extends StatelessWidget {
             color: enabled ? AppColors.saffron : AppColors.lightGrey,
           ),
           color: enabled
-              ? AppColors.saffron.withOpacity(0.08)
-              : AppColors.lightGrey.withOpacity(0.3),
+              ? AppColors.saffron.withValues(alpha: 0.08)
+              : AppColors.lightGrey.withValues(alpha: 0.3),
         ),
         child: Icon(
           icon,
@@ -418,7 +418,7 @@ class _ModeOption extends StatelessWidget {
             width: isSelected ? 2 : 1,
           ),
           color: isSelected
-              ? AppColors.saffron.withOpacity(0.05)
+              ? AppColors.saffron.withValues(alpha: 0.05)
               : AppColors.white,
         ),
         child: Row(

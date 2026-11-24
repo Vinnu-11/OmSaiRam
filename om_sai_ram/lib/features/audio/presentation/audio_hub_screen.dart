@@ -119,7 +119,7 @@ class _AudioCard extends StatelessWidget {
             border: Border.all(color: AppColors.lightGrey),
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.07),
+                color: color.withValues(alpha: 0.07),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -132,7 +132,7 @@ class _AudioCard extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.10),
+                  color: color.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(icon, color: color, size: 28),
@@ -163,7 +163,7 @@ class _AudioCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded, color: AppColors.mediumText, size: 24),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.mediumText, size: 24),
             ],
           ),
         ),
